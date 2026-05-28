@@ -1,141 +1,75 @@
+// Web Worker for Pyodide Python execution
+
 let pyodide = null;
-let loading = false;
 let ready = false;
 
+// Load Pyodide with absolute CDN
+importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js');
+
 async function initPyodide() {
-    if (loading) return;
-    loading = true;
-    
-    try {
-        importScripts('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
-        
+    if (!pyodide) {
         pyodide = await loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
-            fullStdLib: false
+            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/'
         });
         
+        // Pre-import sys and io
         await pyodide.runPythonAsync(`
 import sys
 import io
-import re
-
-class OutputCapture:
-    def __init__(self):
-        self.buffer = []
-    
-    def write(self, text):
-        self.buffer.append(text)
-    
-    def get(self):
-        return ''.join(self.buffer)
-    
-    def clear(self):
-        self.buffer = []
-
-original_stdout = sys.stdout
-capture = OutputCapture()
-
-def normalize_indentation(code):
-    lines = code.split('\\n')
-    if not lines:
-        return code
-    
-    base_indent = None
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not stripped.startswith('#'):
-            indent_match = re.match(r'^\\s+', line)
-            if indent_match:
-                base_indent = len(indent_match.group())
-            else:
-                base_indent = 0
-            break
-    
-    if base_indent is None:
-        return code
-    
-    normalized = []
-    for line in lines:
-        if line.strip():
-            stripped = line.lstrip()
-            if base_indent > 0:
-                normalized.append(' ' * 4 + stripped)
-            else:
-                normalized.append(stripped)
-        else:
-            normalized.append('')
-    
-    return '\\n'.join(normalized)
-
-def execute_python(code, inputs_dict):
-    capture.clear()
-    sys.stdout = capture
-    
-    try:
-        code = normalize_indentation(code)
-        
-        for key, value in inputs_dict.items():
-            globals()[key] = value
-        
-        exec(code)
-        
-        result = capture.get()
-        sys.stdout = original_stdout
-        return {'success': True, 'output': result}
-    except Exception as e:
-        sys.stdout = original_stdout
-        return {'success': False, 'error': str(e)}
         `);
-        
         ready = true;
-        self.postMessage({ type: 'ready' });
-        
-    } catch (error) {
-        self.postMessage({ type: 'error', error: error.message });
+        console.log('Worker: Pyodide ready');
     }
 }
 
-self.addEventListener('message', async (event) => {
-    if (!ready) {
+// Handle messages from main thread
+self.onmessage = async (event) => {
+    const { type, id, code, inputs } = event.data;
+    
+    if (type === 'ready') {
         await initPyodide();
+        self.postMessage({ id: id, success: true, output: 'ready' });
+        return;
     }
     
-    const { id, code, scope } = event.data;
-    
-    try {
-        const scopeJson = JSON.stringify(scope || {});
-        const result = await pyodide.runPythonAsync(`
-result = execute_python(${JSON.stringify(code)}, ${scopeJson})
-result
-        `);
-        
-        let output = '';
-        if (result.toJs && typeof result.toJs === 'function') {
-            const jsResult = result.toJs();
-            if (jsResult.success) {
-                output = jsResult.output;
-            } else {
-                throw new Error(jsResult.error);
-            }
-        } else if (result.success === false) {
-            throw new Error(result.error);
-        } else {
-            output = result.output || '';
+    if (type === 'run') {
+        if (!ready) {
+            await initPyodide();
         }
         
-        self.postMessage({
-            id: id,
-            success: true,
-            output: output
-        });
-        
-    } catch (error) {
-        self.postMessage({
-            id: id,
-            success: false,
-            error: error.message
-        });
+        try {
+            // Pass inputs as Python dictionary (fixes inputs.get() error)
+            pyodide.globals.set('inputs', pyodide.toPy(inputs || {}));
+            
+            // Setup output capture
+            await pyodide.runPythonAsync('sys.stdout = io.StringIO()');
+            
+            // Execute user code (no indentation issues!)
+            await pyodide.runPythonAsync(code);
+            
+            // Get captured output
+            const output = pyodide.runPython('sys.stdout.getvalue()');
+            
+            // Restore stdout
+            await pyodide.runPythonAsync('sys.stdout = sys.__stdout__');
+            
+            self.postMessage({
+                id: id,
+                success: true,
+                output: output
+            });
+            
+        } catch (error) {
+            // Restore stdout on error
+            try {
+                await pyodide.runPythonAsync('sys.stdout = sys.__stdout__');
+            } catch(e) {}
+            
+            self.postMessage({
+                id: id,
+                success: false,
+                error: error.message
+            });
+        }
     }
-});
-
-initPyodide();
+};
