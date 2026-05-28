@@ -1,21 +1,31 @@
-(async function() {
-    const script = document.createElement('script');
+(function() {
+    // Create a clean iframe to run Python (bypasses CSP)
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    
+    const win = iframe.contentWindow;
+    const doc = iframe.contentDocument;
+    
+    // Load Pyodide in iframe (no CSP restrictions)
+    const script = doc.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js';
-    await new Promise(r => { script.onload = r; document.head.appendChild(script); });
-    
-    const pyodide = await loadPyodide({ 
-        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/' 
-    });
-    
-    // Pyodide's input() already creates browser prompts!
-    document.querySelectorAll('script[type="text/python"]').forEach(async (scriptTag) => {
-        const response = await fetch(scriptTag.src);
-        const code = await response.text();
+    script.onload = async () => {
+        const pyodide = await win.loadPyodide({
+            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/'
+        });
         
-        const result = await pyodide.runPythonAsync(code);
-        
-        const outputDiv = document.createElement('div');
-        outputDiv.innerHTML = `<pre>${result}</pre>`;
-        document.body.appendChild(outputDiv);
-    });
+        // Run Python files
+        document.querySelectorAll('script[type="text/python"]').forEach(async (tag) => {
+            const response = await fetch(tag.src);
+            const code = await response.text();
+            
+            const result = await pyodide.runPythonAsync(code);
+            
+            const out = document.createElement('pre');
+            out.textContent = result;
+            document.body.appendChild(out);
+        });
+    };
+    doc.head.appendChild(script);
 })();
