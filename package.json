@@ -1,13 +1,12 @@
 {
   "name": "pytml",
   "version": "3.1.0",
-  "description": "Python in HTML - Client-side Python execution like JavaScript",
+  "description": "Python in HTML - Write Python directly in your browser like JavaScript",
   "main": "pytml.js",
   "unpkg": "pytml.min.js",
   "jsdelivr": "pytml.min.js",
   "scripts": {
-    "build": "uglifyjs pytml.js -o pytml.min.js && uglifyjs worker.js -o worker.min.js",
-    "test": "node test.js",
+    "build": "uglifyjs pytml.js -o pytml.min.js",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -16,23 +15,28 @@
     "webassembly",
     "pyodide",
     "client-side",
-    "browser-python"
+    "browser-python",
+    "pytml",
+    "python-in-browser"
   ],
-  "author": "Aswanth R (NodeX-AR)",
+  "author": "NodeX-AR",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nodex-ar/pytml.git"
+    "url": "git+https://github.com/NodeX-AR/Pytml.git"
   },
   "bugs": {
-    "url": "https://github.com/nodex-ar/pytml/issues"
+    "url": "https://github.com/NodeX-AR/Pytml/issues"
   },
-  "homepage": "https://github.com/nodex-ar/pytml#readme",
+  "homepage": "https://github.com/NodeX-AR/Pytml#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "files": [
     "pytml.js",
     "pytml.min.js",
     "worker.js",
-    "worker.min.js",
     "README.md"
   ],
   "devDependencies": {
