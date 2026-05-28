@@ -8,8 +8,6 @@
             this.queue = [];
             this.loading = false;
             this.startTime = null;
-            this.elements = new Map();
-            this.outputCache = new Map();
             this.init();
         }
 
@@ -27,7 +25,7 @@
                     await this.loadScript('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
                 }
                 
-                statusDiv.textContent = '[PYTML] Loading Python WebAssembly (approx 6MB)...';
+                statusDiv.textContent = '[PYTML] Loading Python WebAssembly (6MB)...';
                 
                 this.pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
@@ -49,7 +47,7 @@
                 
             } catch (error) {
                 console.error('[PYTML] Failed to load:', error);
-                statusDiv.textContent = '[PYTML] Failed to load Python. Please check network.';
+                statusDiv.textContent = '[PYTML] Failed to load Python. Check network.';
                 statusDiv.style.background = '#dc3545';
             }
         }
@@ -75,11 +73,20 @@
             return div;
         }
 
+        loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
         async setupPythonEnvironment() {
             await this.pyodide.runPythonAsync(`
 import sys
 import io
-import json
 import re
 
 class OutputCapture:
@@ -99,12 +106,10 @@ original_stdout = sys.stdout
 capture = OutputCapture()
 
 def normalize_indentation(code):
-    """Fix indentation issues from HTML minification"""
     lines = code.split('\\n')
     if not lines:
         return code
     
-    # Find first non-empty line to detect base indent
     base_indent = None
     for line in lines:
         stripped = line.strip()
@@ -119,7 +124,6 @@ def normalize_indentation(code):
     if base_indent is None:
         return code
     
-    # Normalize indentation
     normalized = []
     for line in lines:
         if line.strip():
@@ -133,21 +137,16 @@ def normalize_indentation(code):
     
     return '\\n'.join(normalized)
 
-print = lambda *args, **kwargs: capture.write(' '.join(str(a) for a in args) + (kwargs.get('end', '\\n')))
-
 def execute_python(code, inputs_dict):
     capture.clear()
     sys.stdout = capture
     
     try:
-        # Fix indentation
         code = normalize_indentation(code)
         
-        # Make inputs available
         for key, value in inputs_dict.items():
             globals()[key] = value
         
-        # Execute the code
         exec(code)
         
         result = capture.get()
@@ -159,30 +158,16 @@ def execute_python(code, inputs_dict):
             `);
         }
 
-        loadScript(src) {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        }
-
         async wait() {
             if (this.ready) return;
             return new Promise(resolve => this.queue.push(resolve));
         }
 
         normalizePythonCode(code) {
-            // Fix quote collisions - HTML safe encoding
             let normalized = code;
-            
-            // Handle escaped quotes
             normalized = normalized.replace(/\\/g, '\\\\');
             normalized = normalized.replace(/`/g, '\\`');
             
-            // Preserve indentation markers
             const lines = normalized.split('\n');
             const processed = lines.map(line => {
                 const match = line.match(/^(\s*)/);
@@ -201,7 +186,6 @@ def execute_python(code, inputs_dict):
         async run(code, scope = {}, options = {}) {
             await this.wait();
             
-            const startTime = Date.now();
             const normalizedCode = this.normalizePythonCode(code);
             
             try {
@@ -211,12 +195,6 @@ def execute_python(code, inputs_dict):
 result = execute_python(${JSON.stringify(normalizedCode)}, ${inputsJson})
 result
                 `);
-                
-                const executionTime = Date.now() - startTime;
-                
-                if (options.debug) {
-                    console.log(`[PYTML] Executed in ${executionTime}ms`);
-                }
                 
                 if (result.toJs && typeof result.toJs === 'function') {
                     const jsResult = result.toJs();
@@ -233,11 +211,10 @@ result
                 return result.output || '';
                 
             } catch (error) {
-                console.error('[PYTML] Python execution error:', error);
+                console.error('[PYTML] Python error:', error);
                 
-                // Provide helpful error messages
                 if (error.message.includes('IndentationError')) {
-                    throw new Error('Python Indentation Error: Check that your code has consistent spacing. Use 4 spaces per level.');
+                    throw new Error('Python Indentation Error: Use consistent 4-space indentation');
                 } else if (error.message.includes('SyntaxError')) {
                     throw new Error(`Python Syntax Error: ${error.message}`);
                 }
@@ -264,7 +241,7 @@ result
                     const result = await this.run(code);
                     el.textContent = result;
                 } catch (error) {
-                    el.textContent = `[PYTML Error: ${error.message}]`;
+                    el.textContent = `[Error: ${error.message}]`;
                     el.style.color = '#dc3545';
                 }
             }
@@ -275,7 +252,7 @@ result
                     const result = await this.run(code);
                     el.innerHTML = result;
                 } catch (error) {
-                    el.innerHTML = `<span style="color:#dc3545">[PYTML Error: ${error.message}]</span>`;
+                    el.innerHTML = `<span style="color:#dc3545">[Error: ${error.message}]</span>`;
                 }
             }
             
@@ -284,9 +261,6 @@ result
                 const eventType = el.getAttribute('data-event') || 'click';
                 const targetSelector = el.getAttribute('data-target');
                 const showLoader = el.getAttribute('data-loader') !== 'false';
-                const debounceMs = parseInt(el.getAttribute('data-debounce') || '0');
-                
-                let timeoutId = null;
                 
                 const handler = async () => {
                     if (showLoader) {
@@ -300,12 +274,7 @@ result
                         if (targetSelector) {
                             const target = document.querySelector(targetSelector);
                             if (target) {
-                                const outputMethod = el.getAttribute('data-output-method') || 'html';
-                                if (outputMethod === 'text') {
-                                    target.textContent = result;
-                                } else {
-                                    target.innerHTML = result.replace(/\n/g, '<br>');
-                                }
+                                target.innerHTML = result.replace(/\n/g, '<br>');
                             }
                         }
                         
@@ -313,20 +282,13 @@ result
                             el.innerHTML = result;
                         }
                         
-                        this.triggerEvent(el, 'pytml-success', result);
-                        
                     } catch (error) {
-                        console.error('[PYTML] Handler error:', error);
-                        
                         if (targetSelector) {
                             const target = document.querySelector(targetSelector);
                             if (target) {
-                                target.innerHTML = `<span style="color:#dc3545">Python Error: ${error.message}</span>`;
+                                target.innerHTML = `<span style="color:#dc3545">Error: ${error.message}</span>`;
                             }
                         }
-                        
-                        this.triggerEvent(el, 'pytml-error', error);
-                        
                     } finally {
                         if (showLoader) {
                             this.hideLoader(el);
@@ -334,14 +296,7 @@ result
                     }
                 };
                 
-                if (debounceMs > 0) {
-                    el.addEventListener(eventType, () => {
-                        if (timeoutId) clearTimeout(timeoutId);
-                        timeoutId = setTimeout(handler, debounceMs);
-                    });
-                } else {
-                    el.addEventListener(eventType, handler);
-                }
+                el.addEventListener(eventType, handler);
             }
         }
 
@@ -368,23 +323,13 @@ result
                 }
             }
             
-            const explicitInputs = element.getAttribute('data-inputs');
-            if (explicitInputs) {
-                try {
-                    const parsed = JSON.parse(explicitInputs);
-                    Object.assign(inputs, parsed);
-                } catch (e) {
-                    console.warn('[PYTML] Failed to parse data-inputs:', e);
-                }
-            }
-            
             return inputs;
         }
 
         showLoader(element) {
             const originalText = element.innerHTML;
             element.setAttribute('data-original-text', originalText);
-            element.innerHTML = '<span class="pytml-loader">⟳</span> Processing...';
+            element.innerHTML = '[Processing Python...]';
             element.disabled = true;
         }
 
@@ -394,28 +339,6 @@ result
                 element.innerHTML = originalText;
             }
             element.disabled = false;
-        }
-
-        triggerEvent(element, eventName, detail) {
-            const event = new CustomEvent(eventName, { detail });
-            element.dispatchEvent(event);
-        }
-
-        async getValue(code) {
-            await this.wait();
-            return await this.pyodide.runPythonAsync(code);
-        }
-
-        async setValue(code, value) {
-            await this.wait();
-            await this.pyodide.runPythonAsync(`${code} = ${JSON.stringify(value)}`);
-        }
-
-        async import(url) {
-            await this.wait();
-            const response = await fetch(url);
-            const code = await response.text();
-            return this.run(code);
         }
 
         getStatus() {
