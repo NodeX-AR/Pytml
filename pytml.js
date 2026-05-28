@@ -18,6 +18,13 @@
             
             console.log('[PYTML] Initializing Python runtime...');
             
+            // Wait for DOM to be ready before creating status indicator
+            if (document.readyState === 'loading') {
+                await new Promise(resolve => {
+                    document.addEventListener('DOMContentLoaded', resolve);
+                });
+            }
+            
             const statusDiv = this.createStatusIndicator();
             
             try {
@@ -38,7 +45,9 @@
                 const loadTime = ((Date.now() - this.startTime) / 1000).toFixed(1);
                 console.log(`[PYTML] Python ready in ${loadTime}s`);
                 
-                statusDiv.style.display = 'none';
+                if (statusDiv && statusDiv.parentNode) {
+                    statusDiv.style.display = 'none';
+                }
                 
                 this.queue.forEach(cb => cb());
                 this.queue = [];
@@ -47,13 +56,19 @@
                 
             } catch (error) {
                 console.error('[PYTML] Failed to load:', error);
-                statusDiv.textContent = '[PYTML] Failed to load Python. Check network.';
-                statusDiv.style.background = '#dc3545';
+                if (statusDiv) {
+                    statusDiv.textContent = '[PYTML] Failed to load Python. Check network.';
+                    statusDiv.style.background = '#dc3545';
+                }
             }
         }
 
         createStatusIndicator() {
-            const div = document.createElement('div');
+            // Check if status div already exists
+            let div = document.getElementById('pytml-status');
+            if (div) return div;
+            
+            div = document.createElement('div');
             div.id = 'pytml-status';
             div.style.cssText = `
                 position: fixed;
@@ -69,7 +84,18 @@
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
             `;
             div.textContent = '[PYTML] Loading Python...';
-            document.body.appendChild(div);
+            
+            // Only append if body exists
+            if (document.body) {
+                document.body.appendChild(div);
+            } else {
+                // Wait for body to exist
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (document.body && !document.getElementById('pytml-status')) {
+                        document.body.appendChild(div);
+                    }
+                });
+            }
             return div;
         }
 
@@ -78,12 +104,14 @@
                 const script = document.createElement('script');
                 script.src = src;
                 script.onload = resolve;
-                script.onerror = reject;
+                script.onerror = () => reject(new Error(`Failed to load ${src}`));
                 document.head.appendChild(script);
             });
         }
 
         async setupPythonEnvironment() {
+            if (!this.pyodide) return;
+            
             await this.pyodide.runPythonAsync(`
 import sys
 import io
@@ -163,36 +191,15 @@ def execute_python(code, inputs_dict):
             return new Promise(resolve => this.queue.push(resolve));
         }
 
-        normalizePythonCode(code) {
-            let normalized = code;
-            normalized = normalized.replace(/\\/g, '\\\\');
-            normalized = normalized.replace(/`/g, '\\`');
-            
-            const lines = normalized.split('\n');
-            const processed = lines.map(line => {
-                const match = line.match(/^(\s*)/);
-                if (match) {
-                    const spaces = match[1].length;
-                    if (spaces > 0 && spaces % 4 !== 0) {
-                        return '    '.repeat(Math.ceil(spaces / 4)) + line.trimStart();
-                    }
-                }
-                return line;
-            });
-            
-            return processed.join('\n');
-        }
-
-        async run(code, scope = {}, options = {}) {
-            await this.wait();
-            
-            const normalizedCode = this.normalizePythonCode(code);
+        async run(code, scope = {}) {
+            if (!this.ready) {
+                await this.wait();
+            }
             
             try {
                 const inputsJson = JSON.stringify(scope);
-                
                 const result = await this.pyodide.runPythonAsync(`
-result = execute_python(${JSON.stringify(normalizedCode)}, ${inputsJson})
+result = execute_python(${JSON.stringify(code)}, ${inputsJson})
 result
                 `);
                 
@@ -212,22 +219,14 @@ result
                 
             } catch (error) {
                 console.error('[PYTML] Python error:', error);
-                
-                if (error.message.includes('IndentationError')) {
-                    throw new Error('Python Indentation Error: Use consistent 4-space indentation');
-                } else if (error.message.includes('SyntaxError')) {
-                    throw new Error(`Python Syntax Error: ${error.message}`);
-                }
-                
-                throw error;
+                return `Error: ${error.message}`;
             }
         }
 
         async processPage() {
-            await this.wait();
+            if (!this.ready) return;
             
             const elements = document.querySelectorAll('[data-python], [data-python-text], [data-python-html]');
-            console.log(`[PYTML] Found ${elements.length} Python-enhanced elements`);
             
             for (const el of elements) {
                 await this.bindElement(el);
@@ -235,38 +234,26 @@ result
         }
 
         async bindElement(el) {
+            if (!el) return;
+            
             if (el.hasAttribute('data-python-text')) {
                 const code = el.getAttribute('data-python-text');
-                try {
-                    const result = await this.run(code);
-                    el.textContent = result;
-                } catch (error) {
-                    el.textContent = `[Error: ${error.message}]`;
-                    el.style.color = '#dc3545';
-                }
+                const result = await this.run(code);
+                if (el) el.textContent = result;
             }
             
             if (el.hasAttribute('data-python-html')) {
                 const code = el.getAttribute('data-python-html');
-                try {
-                    const result = await this.run(code);
-                    el.innerHTML = result;
-                } catch (error) {
-                    el.innerHTML = `<span style="color:#dc3545">[Error: ${error.message}]</span>`;
-                }
+                const result = await this.run(code);
+                if (el) el.innerHTML = result;
             }
             
             if (el.hasAttribute('data-python')) {
                 const code = el.getAttribute('data-python');
                 const eventType = el.getAttribute('data-event') || 'click';
                 const targetSelector = el.getAttribute('data-target');
-                const showLoader = el.getAttribute('data-loader') !== 'false';
                 
                 const handler = async () => {
-                    if (showLoader) {
-                        this.showLoader(el);
-                    }
-                    
                     try {
                         const inputs = this.collectInputs(el);
                         const result = await this.run(code, inputs);
@@ -277,21 +264,12 @@ result
                                 target.innerHTML = result.replace(/\n/g, '<br>');
                             }
                         }
-                        
-                        if (el.getAttribute('data-output-self') === 'true') {
-                            el.innerHTML = result;
-                        }
-                        
                     } catch (error) {
                         if (targetSelector) {
                             const target = document.querySelector(targetSelector);
                             if (target) {
-                                target.innerHTML = `<span style="color:#dc3545">Error: ${error.message}</span>`;
+                                target.innerHTML = `Error: ${error.message}`;
                             }
-                        }
-                    } finally {
-                        if (showLoader) {
-                            this.hideLoader(el);
                         }
                     }
                 };
@@ -309,43 +287,22 @@ result
                 for (const input of allInputs) {
                     if (input.name) {
                         let value = input.value;
-                        
                         if (input.type === 'number') {
                             value = parseFloat(value);
                         } else if (input.type === 'checkbox') {
                             value = input.checked;
-                        } else if (input.type === 'radio' && input.checked) {
-                            value = input.value;
                         }
-                        
                         inputs[input.name] = value;
                     }
                 }
             }
-            
             return inputs;
-        }
-
-        showLoader(element) {
-            const originalText = element.innerHTML;
-            element.setAttribute('data-original-text', originalText);
-            element.innerHTML = '[Processing Python...]';
-            element.disabled = true;
-        }
-
-        hideLoader(element) {
-            const originalText = element.getAttribute('data-original-text');
-            if (originalText) {
-                element.innerHTML = originalText;
-            }
-            element.disabled = false;
         }
 
         getStatus() {
             return {
                 ready: this.ready,
-                loadingTime: this.startTime ? ((Date.now() - this.startTime) / 1000).toFixed(1) : null,
-                version: '3.1.0'
+                loadingTime: this.startTime ? ((Date.now() - this.startTime) / 1000).toFixed(1) : null
             };
         }
     }
@@ -353,8 +310,13 @@ result
     const pytml = new PYTMLRuntime();
     global.pytml = pytml;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    // Process page when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            pytml.processPage();
+        });
+    } else {
         pytml.processPage();
-    });
+    }
 
 })(window);
