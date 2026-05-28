@@ -1,73 +1,140 @@
-(function(global) {
-    'use strict';
-
+(function(window) {
     class PYTML {
         constructor() {
-            this.ready = true;
+            this.ready = false;
+            this.queue = [];
             this.init();
         }
 
-        init() {
-            console.log('PYTML: Ready!');
-            this.processPage();
+        async init() {
+            console.log('PYTML: Loading Python...');
+            
+            // Show loading indicator
+            this.showStatus();
+            
+            try {
+                // Load Pyodide script
+                if (typeof loadPyodide === 'undefined') {
+                    await this.loadScript('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
+                }
+                
+                // Initialize Pyodide
+                this.pyodide = await loadPyodide({
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+                });
+                
+                this.ready = true;
+                console.log('PYTML: Python ready!');
+                this.hideStatus();
+                
+                // Process queued callbacks
+                this.queue.forEach(cb => cb());
+                this.queue = [];
+                
+                // Process page
+                this.processPage();
+                
+            } catch (error) {
+                console.error('PYTML Error:', error);
+                this.showError(error.message);
+            }
         }
 
-        // Simple Python interpreter
-        runPython(code, inputs = {}) {
+        showStatus() {
+            let div = document.getElementById('pytml-status');
+            if (!div) {
+                div = document.createElement('div');
+                div.id = 'pytml-status';
+                div.style.cssText = `
+                    position: fixed;
+                    bottom: 10px;
+                    right: 10px;
+                    background: #007acc;
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    font-family: monospace;
+                    z-index: 9999;
+                `;
+                div.textContent = 'PYTML: Loading Python (first time takes 5-10s)...';
+                document.body.appendChild(div);
+            }
+        }
+
+        hideStatus() {
+            const div = document.getElementById('pytml-status');
+            if (div) div.remove();
+        }
+
+        showError(message) {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: #dc3545;
+                color: white;
+                padding: 10px;
+                border-radius: 4px;
+                font-size: 12px;
+                z-index: 9999;
+            `;
+            div.textContent = `PYTML Error: ${message}`;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 5000);
+        }
+
+        loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        async wait() {
+            if (this.ready) return;
+            return new Promise(resolve => this.queue.push(resolve));
+        }
+
+        async run(code, inputs = {}) {
+            await this.wait();
+            
             try {
-                let output = '';
-                
-                // Build variables from inputs
-                let varCode = '';
+                // Build input variables
+                let inputCode = '';
                 for (const [key, value] of Object.entries(inputs)) {
                     if (typeof value === 'string') {
-                        varCode += `var ${key} = "${value.replace(/"/g, '\\"')}";\n`;
-                    } else if (typeof value === 'number') {
-                        varCode += `var ${key} = ${value};\n`;
+                        inputCode += `${key} = "${value.replace(/"/g, '\\"')}"\n`;
                     } else {
-                        varCode += `var ${key} = ${JSON.stringify(value)};\n`;
+                        inputCode += `${key} = ${JSON.stringify(value)}\n`;
                     }
                 }
                 
-                // Parse Python-style code to JavaScript
-                let jsCode = varCode;
-                const lines = code.split('\n');
+                // Execute Python and capture output
+                const result = await this.pyodide.runPythonAsync(`
+import sys
+from io import StringIO
+
+old_stdout = sys.stdout
+sys.stdout = StringIO()
+
+try:
+    ${inputCode}
+    ${code}
+    output = sys.stdout.getvalue()
+except Exception as e:
+    output = f"Error: {str(e)}"
+finally:
+    sys.stdout = old_stdout
+
+output
+                `);
                 
-                for (let line of lines) {
-                    line = line.trim();
-                    if (!line) continue;
-                    
-                    // Handle print statements
-                    if (line.startsWith('print(') && line.endsWith(')')) {
-                        let content = line.slice(6, -1);
-                        jsCode += `output += ${content} + '\\n';\n`;
-                    }
-                    // Handle if statements
-                    else if (line.startsWith('if ')) {
-                        let condition = line.slice(3, -1);
-                        jsCode += `if (${condition}) {\n`;
-                    }
-                    // Handle elif
-                    else if (line.startsWith('elif ')) {
-                        let condition = line.slice(5, -1);
-                        jsCode += `} else if (${condition}) {\n`;
-                    }
-                    // Handle else
-                    else if (line === 'else:') {
-                        jsCode += `} else {\n`;
-                    }
-                    // Handle variable assignments
-                    else if (line.includes('=')) {
-                        jsCode += line + ';\n';
-                    }
-                }
-                
-                // Execute the JavaScript
-                const execute = new Function('output', jsCode + 'return output;');
-                output = execute(output);
-                
-                return output || 'No output';
-                
+                return result;
             } catch (error) {
                 return `Error: ${error.message}`;
             }
@@ -84,6 +151,8 @@
                         let value = el.value;
                         if (el.type === 'number') {
                             value = parseFloat(value);
+                        } else if (el.type === 'checkbox') {
+                            value = el.checked;
                         }
                         inputs[el.name] = value;
                     }
@@ -92,13 +161,23 @@
             return inputs;
         }
 
-        processPage() {
+        async processPage() {
+            await this.wait();
+            
             // Handle data-python-text
             const textElements = document.querySelectorAll('[data-python-text]');
             for (const el of textElements) {
                 const code = el.getAttribute('data-python-text');
-                const result = this.runPython(`print(${code})`);
+                const result = await this.run(`print(${code})`);
                 if (el) el.textContent = result.trim();
+            }
+            
+            // Handle data-python-html
+            const htmlElements = document.querySelectorAll('[data-python-html]');
+            for (const el of htmlElements) {
+                const code = el.getAttribute('data-python-html');
+                const result = await this.run(`print(${code})`);
+                if (el) el.innerHTML = result.trim();
             }
             
             // Handle data-python buttons
@@ -107,9 +186,9 @@
                 const code = btn.getAttribute('data-python');
                 const target = btn.getAttribute('data-target');
                 
-                btn.addEventListener('click', () => {
+                btn.addEventListener('click', async () => {
                     const inputs = this.collectInputs(btn);
-                    const result = this.runPython(code, inputs);
+                    const result = await this.run(code, inputs);
                     
                     if (target) {
                         const targetEl = document.querySelector(target);
@@ -122,7 +201,5 @@
         }
     }
 
-    const pytml = new PYTML();
-    global.pytml = pytml;
-
+    window.pytml = new PYTML();
 })(window);
