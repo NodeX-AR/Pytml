@@ -1,232 +1,117 @@
 (function(global) {
     'use strict';
 
-    class PYTMLCore {
+    class PYTML {
         constructor() {
-            this.pyodide = null;
-            this.ready = false;
-            this.queue = [];
-            this.cache = new Map();
-            this.components = new Map();
-            this.eventHandlers = new Map();
+            this.variables = {};
+            this.ready = true;
             this.init();
         }
 
-        async init() {
-            if (this.ready) return;
-            
-            console.log('🐍 PYTML: Initializing...');
-            
-            // Show loading indicator
-            this.showLoader();
-            
-            try {
-                // Load Pyodide with fallback CDNs
-                await this.loadPyodide();
-                
-                // Initialize Python environment
-                await this.initPython();
-                
-                this.ready = true;
-                this.hideLoader();
-                
-                // Process all Python elements
-                this.processDOM();
-                
-                // Setup mutation observer for dynamic content
-                this.observeDOM();
-                
-                console.log('✅ PYTML: Ready!');
-                
-            } catch (error) {
-                console.error('❌ PYTML:', error);
-                this.showError(error.message);
-            }
+        init() {
+            console.log('PYTML: Ready!');
+            this.processPage();
         }
 
-        async loadPyodide() {
-            const cdns = [
-                'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js',
-                'https://unpkg.com/pyodide@0.24.1/pyodide.js',
-                'https://cdn.skypack.dev/pyodide'
-            ];
-            
-            for (const cdn of cdns) {
-                try {
-                    if (typeof loadPyodide === 'undefined') {
-                        await this.loadScript(cdn);
+        // Simple Python interpreter in JavaScript
+        evaluatePython(code, inputs = {}) {
+            try {
+                // Merge inputs with variables
+                const vars = { ...this.variables, ...inputs };
+                
+                // Create variable assignments
+                let varDeclarations = '';
+                for (const [key, value] of Object.entries(vars)) {
+                    if (typeof value === 'string') {
+                        varDeclarations += `let ${key} = "${value}";\n`;
+                    } else if (typeof value === 'number') {
+                        varDeclarations += `let ${key} = ${value};\n`;
+                    } else {
+                        varDeclarations += `let ${key} = ${JSON.stringify(value)};\n`;
                     }
-                    break;
-                } catch (e) {
-                    console.warn(`Failed to load from ${cdn}`);
                 }
-            }
-            
-            this.pyodide = await loadPyodide({
-                indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
-                fullStdLib: false
-            });
-        }
-
-        async initPython() {
-            await this.pyodide.runPythonAsync(`
-import sys
-import io
-import json
-import re
-from typing import Any, Dict, Optional
-
-class FastOutput:
-    __slots__ = ['buffer']
-    def __init__(self):
-        self.buffer = []
-    def write(self, text):
-        if text:
-            self.buffer.append(str(text))
-    def get(self):
-        return ''.join(self.buffer)
-    def clear(self):
-        self.buffer = []
-
-class PYTMLRuntime:
-    __slots__ = ['output', 'cache', 'globals']
-    
-    def __init__(self):
-        self.output = FastOutput()
-        self.cache = {}
-        self.globals = {}
-    
-    def execute(self, code: str, inputs: Dict = None) -> str:
-        self.output.clear()
-        old_stdout = sys.stdout
-        sys.stdout = self.output
-        
-        try:
-            if inputs:
-                for k, v in inputs.items():
-                    self.globals[k] = v
-            
-            exec(code, self.globals)
-            result = self.output.get()
-            sys.stdout = old_stdout
-            return result
-        except Exception as e:
-            sys.stdout = old_stdout
-            raise e
-
-runtime = PYTMLRuntime()
-
-def fast_execute(code, inputs):
-    return runtime.execute(code, inputs)
-            `);
-        }
-
-        async run(code, inputs = {}) {
-            if (!this.ready) await this.wait();
-            
-            const cacheKey = `${code}_${JSON.stringify(inputs)}`;
-            if (this.cache.has(cacheKey)) {
-                return this.cache.get(cacheKey);
-            }
-            
-            try {
-                const result = await this.pyodide.runPythonAsync(`
-fast_execute(${JSON.stringify(code)}, ${JSON.stringify(inputs)})
-                `);
                 
-                // Cache results for 1 second (prevents duplicate executions)
-                setTimeout(() => this.cache.delete(cacheKey), 1000);
-                this.cache.set(cacheKey, result);
+                // Parse and execute Python-like syntax
+                let jsCode = varDeclarations;
+                let output = '';
                 
-                return result;
+                // Override console.log to capture output
+                const originalLog = console.log;
+                console.log = (...args) => {
+                    output += args.join(' ') + '\n';
+                    originalLog(...args);
+                };
+                
+                // Convert Python code to JavaScript
+                let jsLines = [];
+                const lines = code.split('\n');
+                
+                for (let line of lines) {
+                    line = line.trim();
+                    if (!line) continue;
+                    
+                    // Handle print statements
+                    if (line.startsWith('print(') && line.endsWith(')')) {
+                        let content = line.slice(6, -1);
+                        jsLines.push(`console.log(${content});`);
+                    }
+                    // Handle variable assignments
+                    else if (line.includes('=') && !line.includes('if') && !line.includes('for') && !line.includes('while')) {
+                        jsLines.push(line + ';');
+                    }
+                    // Handle if statements
+                    else if (line.startsWith('if ')) {
+                        let condition = line.slice(3);
+                        jsLines.push(`if (${condition}) {`);
+                    }
+                    else if (line === 'else:') {
+                        jsLines.push(`} else {`);
+                    }
+                    else if (line === 'elif') {
+                        jsLines.push(`} else if (${line.slice(5, -1)}) {`);
+                    }
+                    // Handle for loops
+                    else if (line.startsWith('for ')) {
+                        let forMatch = line.match(/for (\w+) in (.+):/);
+                        if (forMatch) {
+                            let varName = forMatch[1];
+                            let iterable = forMatch[2];
+                            jsLines.push(`for (let ${varName} of ${iterable}) {`);
+                        }
+                    }
+                    // Handle while loops
+                    else if (line.startsWith('while ')) {
+                        let condition = line.slice(6, -1);
+                        jsLines.push(`while (${condition}) {`);
+                    }
+                    // Close braces
+                    else if (line === 'end' || line === '}') {
+                        jsLines.push(`}`);
+                    }
+                    // Direct JavaScript execution
+                    else {
+                        jsLines.push(line);
+                    }
+                }
+                
+                jsCode += jsLines.join('\n');
+                
+                // Execute the converted code
+                const execute = new Function(jsCode);
+                execute();
+                
+                // Restore console.log
+                console.log = originalLog;
+                
+                return output;
+                
             } catch (error) {
                 return `Error: ${error.message}`;
             }
         }
 
-        async runFile(url, inputs = {}) {
-            const response = await fetch(url);
-            const code = await response.text();
-            return this.run(code, inputs);
-        }
-
-        async component(name, code, inputs = {}) {
-            this.components.set(name, { code, inputs });
-            
-            // Create a function that can be called from HTML
-            global[name] = async (data = {}) => {
-                const mergedInputs = { ...inputs, ...data };
-                return this.run(code, mergedInputs);
-            };
-            
-            return global[name];
-        }
-
-        processDOM() {
-            // Process data-python-text
-            document.querySelectorAll('[data-python-text]').forEach(async el => {
-                const code = el.getAttribute('data-python-text');
-                const result = await this.run(`result = ${code}\nprint(result)`);
-                if (el) el.textContent = result;
-            });
-            
-            // Process data-python-html
-            document.querySelectorAll('[data-python-html]').forEach(async el => {
-                const code = el.getAttribute('data-python-html');
-                const result = await this.run(`result = ${code}\nprint(result)`);
-                if (el) el.innerHTML = result;
-            });
-            
-            // Process data-python buttons
-            document.querySelectorAll('[data-python]').forEach(el => {
-                const code = el.getAttribute('data-python');
-                const eventType = el.getAttribute('data-event') || 'click';
-                const target = el.getAttribute('data-target');
-                const debounce = parseInt(el.getAttribute('data-debounce') || '300');
-                
-                let timeout = null;
-                const handler = async () => {
-                    if (timeout) return;
-                    
-                    if (el.getAttribute('data-loader') !== 'false') {
-                        this.showButtonLoader(el);
-                    }
-                    
-                    timeout = setTimeout(async () => {
-                        try {
-                            const inputs = this.collectInputs(el);
-                            const result = await this.run(code, inputs);
-                            
-                            if (target) {
-                                const targetEl = document.querySelector(target);
-                                if (targetEl) {
-                                    targetEl.innerHTML = result.replace(/\n/g, '<br>');
-                                }
-                            }
-                            
-                            if (el.getAttribute('data-output-self') === 'true') {
-                                el.innerHTML = result;
-                            }
-                            
-                        } catch (error) {
-                            if (target) {
-                                const targetEl = document.querySelector(target);
-                                if (targetEl) {
-                                    targetEl.innerHTML = `<span style="color:#dc3545">${error.message}</span>`;
-                                }
-                            }
-                        } finally {
-                            if (el.getAttribute('data-loader') !== 'false') {
-                                this.hideButtonLoader(el);
-                            }
-                            timeout = null;
-                        }
-                    }, debounce);
-                };
-                
-                el.removeEventListener(eventType, handler);
-                el.addEventListener(eventType, handler);
-            });
+        async run(code, inputs = {}) {
+            return this.evaluatePython(code, inputs);
         }
 
         collectInputs(element) {
@@ -234,96 +119,62 @@ fast_execute(${JSON.stringify(code)}, ${JSON.stringify(inputs)})
             const form = element.closest('[data-python-form]');
             
             if (form) {
-                form.querySelectorAll('input, select, textarea').forEach(input => {
-                    if (input.name) {
-                        let value = input.value;
-                        if (input.type === 'number') value = parseFloat(value);
-                        if (input.type === 'checkbox') value = input.checked;
-                        if (input.type === 'radio' && input.checked) value = input.value;
-                        inputs[input.name] = value;
+                const elements = form.querySelectorAll('input, select, textarea');
+                for (const el of elements) {
+                    if (el.name) {
+                        let value = el.value;
+                        if (el.type === 'number') {
+                            value = parseFloat(value);
+                        } else if (el.type === 'checkbox') {
+                            value = el.checked;
+                        }
+                        inputs[el.name] = value;
                     }
-                });
+                }
             }
             
             return inputs;
         }
 
-        observeDOM() {
-            const observer = new MutationObserver(() => {
-                this.processDOM();
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-
-        showLoader() {
-            let loader = document.getElementById('pytml-loader');
-            if (!loader) {
-                loader = document.createElement('div');
-                loader.id = 'pytml-loader';
-                loader.innerHTML = `
-                    <div style="position:fixed;bottom:20px;right:20px;background:#007acc;color:white;padding:10px 15px;border-radius:8px;font-family:monospace;font-size:12px;z-index:10000;box-shadow:0 2px 10px rgba(0,0,0,0.2)">
-                        🐍 PYTML: Loading Python...
-                    </div>
-                `;
-                document.body.appendChild(loader);
+        async processPage() {
+            // Process data-python-text
+            const textElements = document.querySelectorAll('[data-python-text]');
+            for (const el of textElements) {
+                const code = el.getAttribute('data-python-text');
+                const result = this.evaluatePython(`print(${code})`);
+                el.textContent = result.trim();
+            }
+            
+            // Process data-python-html
+            const htmlElements = document.querySelectorAll('[data-python-html]');
+            for (const el of htmlElements) {
+                const code = el.getAttribute('data-python-html');
+                const result = this.evaluatePython(`print(${code})`);
+                el.innerHTML = result.trim();
+            }
+            
+            // Process data-python buttons
+            const buttons = document.querySelectorAll('[data-python]');
+            for (const btn of buttons) {
+                const code = btn.getAttribute('data-python');
+                const target = btn.getAttribute('data-target');
+                
+                btn.addEventListener('click', async () => {
+                    const inputs = this.collectInputs(btn);
+                    const result = this.evaluatePython(code, inputs);
+                    
+                    if (target) {
+                        const targetEl = document.querySelector(target);
+                        if (targetEl) {
+                            targetEl.textContent = result;
+                        }
+                    }
+                });
             }
         }
-
-        hideLoader() {
-            const loader = document.getElementById('pytml-loader');
-            if (loader) loader.remove();
-        }
-
-        showButtonLoader(button) {
-            const originalText = button.innerHTML;
-            button.setAttribute('data-original', originalText);
-            button.innerHTML = '⏳ Processing...';
-            button.disabled = true;
-        }
-
-        hideButtonLoader(button) {
-            const original = button.getAttribute('data-original');
-            if (original) button.innerHTML = original;
-            button.disabled = false;
-        }
-
-        showError(message) {
-            const error = document.createElement('div');
-            error.style.cssText = 'position:fixed;top:20px;right:20px;background:#dc3545;color:white;padding:10px;border-radius:5px;z-index:10000';
-            error.textContent = `PYTML Error: ${message}`;
-            document.body.appendChild(error);
-            setTimeout(() => error.remove(), 5000);
-        }
-
-        loadScript(src) {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            });
-        }
-
-        async wait() {
-            if (this.ready) return;
-            return new Promise(resolve => this.queue.push(resolve));
-        }
-
-        getStatus() {
-            return { ready: this.ready, version: '3.2.0' };
-        }
     }
 
-    // Create global instance
-    const pytml = new PYTMLCore();
+    const pytml = new PYTML();
     global.pytml = pytml;
-    
-    // Auto-start when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => pytml.processDOM());
-    } else {
-        pytml.processDOM();
-    }
 
 })(window);
