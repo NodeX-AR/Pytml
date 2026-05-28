@@ -1,37 +1,12 @@
 {
   "name": "pytml",
-  "version": "3.2.0",
-  "description": "🐍 Python in HTML - The easiest way to run Python in your browser",
+  "version": "1.0.0",
+  "description": "Python in HTML - Pure JavaScript Python interpreter",
   "main": "pytml.min.js",
-  "unpkg": "pytml.min.js",
-  "jsdelivr": "pytml.min.js",
   "scripts": {
-    "build": "uglifyjs pytml.js -o pytml.min.js",
-    "prepublish": "npm run build"
+    "build": "uglifyjs pytml.js -o pytml.min.js"
   },
-  "keywords": [
-    "python",
-    "html",
-    "webassembly",
-    "pyodide",
-    "browser-python",
-    "pytml",
-    "easy-python",
-    "no-backend"
-  ],
+  "keywords": ["python", "html", "javascript", "interpreter"],
   "author": "NodeX-AR",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/NodeX-AR/Pytml.git"
-  },
-  "homepage": "https://github.com/NodeX-AR/Pytml#readme",
-  "bugs": {
-    "url": "https://github.com/NodeX-AR/Pytml/issues"
-  },
-  "files": [
-    "pytml.js",
-    "pytml.min.js",
-    "README.md"
-  ]
+  "license": "MIT"
 }
