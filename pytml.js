@@ -18,12 +18,8 @@
             
             console.log('[PYTML] Initializing Python runtime...');
             
-            // Wait for DOM to be ready before creating status indicator
-            if (document.readyState === 'loading') {
-                await new Promise(resolve => {
-                    document.addEventListener('DOMContentLoaded', resolve);
-                });
-            }
+            // Wait for DOM to be ready
+            await this.waitForDOM();
             
             const statusDiv = this.createStatusIndicator();
             
@@ -32,7 +28,7 @@
                     await this.loadScript('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
                 }
                 
-                statusDiv.textContent = '[PYTML] Loading Python WebAssembly (6MB)...';
+                if (statusDiv) statusDiv.textContent = '[PYTML] Loading Python WebAssembly (6MB)...';
                 
                 this.pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
@@ -49,9 +45,11 @@
                     statusDiv.style.display = 'none';
                 }
                 
+                // Process queued callbacks
                 this.queue.forEach(cb => cb());
                 this.queue = [];
                 
+                // Process page elements
                 this.processPage();
                 
             } catch (error) {
@@ -61,6 +59,16 @@
                     statusDiv.style.background = '#dc3545';
                 }
             }
+        }
+
+        waitForDOM() {
+            return new Promise((resolve) => {
+                if (document.readyState !== 'loading') {
+                    resolve();
+                } else {
+                    document.addEventListener('DOMContentLoaded', resolve);
+                }
+            });
         }
 
         createStatusIndicator() {
@@ -85,11 +93,10 @@
             `;
             div.textContent = '[PYTML] Loading Python...';
             
-            // Only append if body exists
+            // Safely append to body
             if (document.body) {
                 document.body.appendChild(div);
             } else {
-                // Wait for body to exist
                 document.addEventListener('DOMContentLoaded', () => {
                     if (document.body && !document.getElementById('pytml-status')) {
                         document.body.appendChild(div);
@@ -227,6 +234,7 @@ result
             if (!this.ready) return;
             
             const elements = document.querySelectorAll('[data-python], [data-python-text], [data-python-html]');
+            console.log(`[PYTML] Found ${elements.length} Python elements`);
             
             for (const el of elements) {
                 await this.bindElement(el);
@@ -307,16 +315,8 @@ result
         }
     }
 
+    // Create global instance
     const pytml = new PYTMLRuntime();
     global.pytml = pytml;
-
-    // Process page when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            pytml.processPage();
-        });
-    } else {
-        pytml.processPage();
-    }
 
 })(window);
