@@ -1,289 +1,232 @@
 (function(global) {
     'use strict';
 
-    class PYTMLRuntime {
+    class PYTMLCore {
         constructor() {
             this.pyodide = null;
             this.ready = false;
             this.queue = [];
-            this.loading = false;
-            this.startTime = null;
+            this.cache = new Map();
+            this.components = new Map();
+            this.eventHandlers = new Map();
             this.init();
         }
 
         async init() {
-            if (this.loading) return;
-            this.loading = true;
-            this.startTime = Date.now();
+            if (this.ready) return;
             
-            console.log('[PYTML] Initializing Python runtime...');
+            console.log('🐍 PYTML: Initializing...');
             
-            // Wait for DOM to be ready
-            await this.waitForDOM();
-            
-            const statusDiv = this.createStatusIndicator();
+            // Show loading indicator
+            this.showLoader();
             
             try {
-                if (typeof loadPyodide === 'undefined') {
-                    await this.loadScript('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
-                }
+                // Load Pyodide with fallback CDNs
+                await this.loadPyodide();
                 
-                if (statusDiv) statusDiv.textContent = '[PYTML] Loading Python WebAssembly (6MB)...';
-                
-                this.pyodide = await loadPyodide({
-                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
-                    fullStdLib: false
-                });
-                
-                await this.setupPythonEnvironment();
+                // Initialize Python environment
+                await this.initPython();
                 
                 this.ready = true;
-                const loadTime = ((Date.now() - this.startTime) / 1000).toFixed(1);
-                console.log(`[PYTML] Python ready in ${loadTime}s`);
+                this.hideLoader();
                 
-                if (statusDiv && statusDiv.parentNode) {
-                    statusDiv.style.display = 'none';
-                }
+                // Process all Python elements
+                this.processDOM();
                 
-                // Process queued callbacks
-                this.queue.forEach(cb => cb());
-                this.queue = [];
+                // Setup mutation observer for dynamic content
+                this.observeDOM();
                 
-                // Process page elements
-                this.processPage();
+                console.log('✅ PYTML: Ready!');
                 
             } catch (error) {
-                console.error('[PYTML] Failed to load:', error);
-                if (statusDiv) {
-                    statusDiv.textContent = '[PYTML] Failed to load Python. Check network.';
-                    statusDiv.style.background = '#dc3545';
-                }
+                console.error('❌ PYTML:', error);
+                this.showError(error.message);
             }
         }
 
-        waitForDOM() {
-            return new Promise((resolve) => {
-                if (document.readyState !== 'loading') {
-                    resolve();
-                } else {
-                    document.addEventListener('DOMContentLoaded', resolve);
-                }
-            });
-        }
-
-        createStatusIndicator() {
-            // Check if status div already exists
-            let div = document.getElementById('pytml-status');
-            if (div) return div;
+        async loadPyodide() {
+            const cdns = [
+                'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js',
+                'https://unpkg.com/pyodide@0.24.1/pyodide.js',
+                'https://cdn.skypack.dev/pyodide'
+            ];
             
-            div = document.createElement('div');
-            div.id = 'pytml-status';
-            div.style.cssText = `
-                position: fixed;
-                bottom: 10px;
-                right: 10px;
-                background: #007acc;
-                color: white;
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-size: 12px;
-                font-family: monospace;
-                z-index: 9999;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            `;
-            div.textContent = '[PYTML] Loading Python...';
-            
-            // Safely append to body
-            if (document.body) {
-                document.body.appendChild(div);
-            } else {
-                document.addEventListener('DOMContentLoaded', () => {
-                    if (document.body && !document.getElementById('pytml-status')) {
-                        document.body.appendChild(div);
+            for (const cdn of cdns) {
+                try {
+                    if (typeof loadPyodide === 'undefined') {
+                        await this.loadScript(cdn);
                     }
-                });
+                    break;
+                } catch (e) {
+                    console.warn(`Failed to load from ${cdn}`);
+                }
             }
-            return div;
-        }
-
-        loadScript(src) {
-            return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = resolve;
-                script.onerror = () => reject(new Error(`Failed to load ${src}`));
-                document.head.appendChild(script);
+            
+            this.pyodide = await loadPyodide({
+                indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
+                fullStdLib: false
             });
         }
 
-        async setupPythonEnvironment() {
-            if (!this.pyodide) return;
-            
+        async initPython() {
             await this.pyodide.runPythonAsync(`
 import sys
 import io
+import json
 import re
+from typing import Any, Dict, Optional
 
-class OutputCapture:
+class FastOutput:
+    __slots__ = ['buffer']
     def __init__(self):
         self.buffer = []
-    
     def write(self, text):
-        self.buffer.append(text)
-    
+        if text:
+            self.buffer.append(str(text))
     def get(self):
         return ''.join(self.buffer)
-    
     def clear(self):
         self.buffer = []
 
-original_stdout = sys.stdout
-capture = OutputCapture()
+class PYTMLRuntime:
+    __slots__ = ['output', 'cache', 'globals']
+    
+    def __init__(self):
+        self.output = FastOutput()
+        self.cache = {}
+        self.globals = {}
+    
+    def execute(self, code: str, inputs: Dict = None) -> str:
+        self.output.clear()
+        old_stdout = sys.stdout
+        sys.stdout = self.output
+        
+        try:
+            if inputs:
+                for k, v in inputs.items():
+                    self.globals[k] = v
+            
+            exec(code, self.globals)
+            result = self.output.get()
+            sys.stdout = old_stdout
+            return result
+        except Exception as e:
+            sys.stdout = old_stdout
+            raise e
 
-def normalize_indentation(code):
-    lines = code.split('\\n')
-    if not lines:
-        return code
-    
-    base_indent = None
-    for line in lines:
-        stripped = line.strip()
-        if stripped and not stripped.startswith('#'):
-            indent_match = re.match(r'^\\s+', line)
-            if indent_match:
-                base_indent = len(indent_match.group())
-            else:
-                base_indent = 0
-            break
-    
-    if base_indent is None:
-        return code
-    
-    normalized = []
-    for line in lines:
-        if line.strip():
-            stripped = line.lstrip()
-            if base_indent > 0:
-                normalized.append(' ' * 4 + stripped)
-            else:
-                normalized.append(stripped)
-        else:
-            normalized.append('')
-    
-    return '\\n'.join(normalized)
+runtime = PYTMLRuntime()
 
-def execute_python(code, inputs_dict):
-    capture.clear()
-    sys.stdout = capture
-    
-    try:
-        code = normalize_indentation(code)
-        
-        for key, value in inputs_dict.items():
-            globals()[key] = value
-        
-        exec(code)
-        
-        result = capture.get()
-        sys.stdout = original_stdout
-        return {'success': True, 'output': result}
-    except Exception as e:
-        sys.stdout = original_stdout
-        return {'success': False, 'error': str(e)}
+def fast_execute(code, inputs):
+    return runtime.execute(code, inputs)
             `);
         }
 
-        async wait() {
-            if (this.ready) return;
-            return new Promise(resolve => this.queue.push(resolve));
-        }
-
-        async run(code, scope = {}) {
-            if (!this.ready) {
-                await this.wait();
+        async run(code, inputs = {}) {
+            if (!this.ready) await this.wait();
+            
+            const cacheKey = `${code}_${JSON.stringify(inputs)}`;
+            if (this.cache.has(cacheKey)) {
+                return this.cache.get(cacheKey);
             }
             
             try {
-                const inputsJson = JSON.stringify(scope);
                 const result = await this.pyodide.runPythonAsync(`
-result = execute_python(${JSON.stringify(code)}, ${inputsJson})
-result
+fast_execute(${JSON.stringify(code)}, ${JSON.stringify(inputs)})
                 `);
                 
-                if (result.toJs && typeof result.toJs === 'function') {
-                    const jsResult = result.toJs();
-                    if (!jsResult.success) {
-                        throw new Error(jsResult.error);
-                    }
-                    return jsResult.output;
-                }
+                // Cache results for 1 second (prevents duplicate executions)
+                setTimeout(() => this.cache.delete(cacheKey), 1000);
+                this.cache.set(cacheKey, result);
                 
-                if (result.success === false) {
-                    throw new Error(result.error);
-                }
-                
-                return result.output || '';
-                
+                return result;
             } catch (error) {
-                console.error('[PYTML] Python error:', error);
                 return `Error: ${error.message}`;
             }
         }
 
-        async processPage() {
-            if (!this.ready) return;
-            
-            const elements = document.querySelectorAll('[data-python], [data-python-text], [data-python-html]');
-            console.log(`[PYTML] Found ${elements.length} Python elements`);
-            
-            for (const el of elements) {
-                await this.bindElement(el);
-            }
+        async runFile(url, inputs = {}) {
+            const response = await fetch(url);
+            const code = await response.text();
+            return this.run(code, inputs);
         }
 
-        async bindElement(el) {
-            if (!el) return;
+        async component(name, code, inputs = {}) {
+            this.components.set(name, { code, inputs });
             
-            if (el.hasAttribute('data-python-text')) {
+            // Create a function that can be called from HTML
+            global[name] = async (data = {}) => {
+                const mergedInputs = { ...inputs, ...data };
+                return this.run(code, mergedInputs);
+            };
+            
+            return global[name];
+        }
+
+        processDOM() {
+            // Process data-python-text
+            document.querySelectorAll('[data-python-text]').forEach(async el => {
                 const code = el.getAttribute('data-python-text');
-                const result = await this.run(code);
+                const result = await this.run(`result = ${code}\nprint(result)`);
                 if (el) el.textContent = result;
-            }
+            });
             
-            if (el.hasAttribute('data-python-html')) {
+            // Process data-python-html
+            document.querySelectorAll('[data-python-html]').forEach(async el => {
                 const code = el.getAttribute('data-python-html');
-                const result = await this.run(code);
+                const result = await this.run(`result = ${code}\nprint(result)`);
                 if (el) el.innerHTML = result;
-            }
+            });
             
-            if (el.hasAttribute('data-python')) {
+            // Process data-python buttons
+            document.querySelectorAll('[data-python]').forEach(el => {
                 const code = el.getAttribute('data-python');
                 const eventType = el.getAttribute('data-event') || 'click';
-                const targetSelector = el.getAttribute('data-target');
+                const target = el.getAttribute('data-target');
+                const debounce = parseInt(el.getAttribute('data-debounce') || '300');
                 
+                let timeout = null;
                 const handler = async () => {
-                    try {
-                        const inputs = this.collectInputs(el);
-                        const result = await this.run(code, inputs);
-                        
-                        if (targetSelector) {
-                            const target = document.querySelector(targetSelector);
-                            if (target) {
-                                target.innerHTML = result.replace(/\n/g, '<br>');
-                            }
-                        }
-                    } catch (error) {
-                        if (targetSelector) {
-                            const target = document.querySelector(targetSelector);
-                            if (target) {
-                                target.innerHTML = `Error: ${error.message}`;
-                            }
-                        }
+                    if (timeout) return;
+                    
+                    if (el.getAttribute('data-loader') !== 'false') {
+                        this.showButtonLoader(el);
                     }
+                    
+                    timeout = setTimeout(async () => {
+                        try {
+                            const inputs = this.collectInputs(el);
+                            const result = await this.run(code, inputs);
+                            
+                            if (target) {
+                                const targetEl = document.querySelector(target);
+                                if (targetEl) {
+                                    targetEl.innerHTML = result.replace(/\n/g, '<br>');
+                                }
+                            }
+                            
+                            if (el.getAttribute('data-output-self') === 'true') {
+                                el.innerHTML = result;
+                            }
+                            
+                        } catch (error) {
+                            if (target) {
+                                const targetEl = document.querySelector(target);
+                                if (targetEl) {
+                                    targetEl.innerHTML = `<span style="color:#dc3545">${error.message}</span>`;
+                                }
+                            }
+                        } finally {
+                            if (el.getAttribute('data-loader') !== 'false') {
+                                this.hideButtonLoader(el);
+                            }
+                            timeout = null;
+                        }
+                    }, debounce);
                 };
                 
+                el.removeEventListener(eventType, handler);
                 el.addEventListener(eventType, handler);
-            }
+            });
         }
 
         collectInputs(element) {
@@ -291,32 +234,96 @@ result
             const form = element.closest('[data-python-form]');
             
             if (form) {
-                const allInputs = form.querySelectorAll('input, select, textarea');
-                for (const input of allInputs) {
+                form.querySelectorAll('input, select, textarea').forEach(input => {
                     if (input.name) {
                         let value = input.value;
-                        if (input.type === 'number') {
-                            value = parseFloat(value);
-                        } else if (input.type === 'checkbox') {
-                            value = input.checked;
-                        }
+                        if (input.type === 'number') value = parseFloat(value);
+                        if (input.type === 'checkbox') value = input.checked;
+                        if (input.type === 'radio' && input.checked) value = input.value;
                         inputs[input.name] = value;
                     }
-                }
+                });
             }
+            
             return inputs;
         }
 
+        observeDOM() {
+            const observer = new MutationObserver(() => {
+                this.processDOM();
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
+
+        showLoader() {
+            let loader = document.getElementById('pytml-loader');
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.id = 'pytml-loader';
+                loader.innerHTML = `
+                    <div style="position:fixed;bottom:20px;right:20px;background:#007acc;color:white;padding:10px 15px;border-radius:8px;font-family:monospace;font-size:12px;z-index:10000;box-shadow:0 2px 10px rgba(0,0,0,0.2)">
+                        🐍 PYTML: Loading Python...
+                    </div>
+                `;
+                document.body.appendChild(loader);
+            }
+        }
+
+        hideLoader() {
+            const loader = document.getElementById('pytml-loader');
+            if (loader) loader.remove();
+        }
+
+        showButtonLoader(button) {
+            const originalText = button.innerHTML;
+            button.setAttribute('data-original', originalText);
+            button.innerHTML = '⏳ Processing...';
+            button.disabled = true;
+        }
+
+        hideButtonLoader(button) {
+            const original = button.getAttribute('data-original');
+            if (original) button.innerHTML = original;
+            button.disabled = false;
+        }
+
+        showError(message) {
+            const error = document.createElement('div');
+            error.style.cssText = 'position:fixed;top:20px;right:20px;background:#dc3545;color:white;padding:10px;border-radius:5px;z-index:10000';
+            error.textContent = `PYTML Error: ${message}`;
+            document.body.appendChild(error);
+            setTimeout(() => error.remove(), 5000);
+        }
+
+        loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        async wait() {
+            if (this.ready) return;
+            return new Promise(resolve => this.queue.push(resolve));
+        }
+
         getStatus() {
-            return {
-                ready: this.ready,
-                loadingTime: this.startTime ? ((Date.now() - this.startTime) / 1000).toFixed(1) : null
-            };
+            return { ready: this.ready, version: '3.2.0' };
         }
     }
 
     // Create global instance
-    const pytml = new PYTMLRuntime();
+    const pytml = new PYTMLCore();
     global.pytml = pytml;
+    
+    // Auto-start when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => pytml.processDOM());
+    } else {
+        pytml.processDOM();
+    }
 
 })(window);
