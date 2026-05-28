@@ -1,17 +1,40 @@
 {
   "name": "pytml",
   "version": "3.1.0",
-  "description": "Python in HTML - Client-side Python execution with full error handling",
+  "description": "Python in HTML - Client-side Python execution like JavaScript",
   "main": "pytml.js",
+  "unpkg": "pytml.min.js",
+  "jsdelivr": "pytml.min.js",
   "scripts": {
-    "build": "uglifyjs pytml.js -o pytml.min.js",
-    "test": "node test.js"
+    "build": "uglifyjs pytml.js -o pytml.min.js && uglifyjs worker.js -o worker.min.js",
+    "test": "node test.js",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": ["python", "html", "webassembly", "pyodide", "client-side"],
+  "keywords": [
+    "python",
+    "html",
+    "webassembly",
+    "pyodide",
+    "client-side",
+    "browser-python"
+  ],
   "author": "Aswanth R (NodeX-AR)",
   "license": "MIT",
-  "files": ["pytml.js", "pytml.min.js", "worker.js"],
-  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodex-ar/pytml.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nodex-ar/pytml/issues"
+  },
+  "homepage": "https://github.com/nodex-ar/pytml#readme",
+  "files": [
+    "pytml.js",
+    "pytml.min.js",
+    "worker.js",
+    "worker.min.js",
+    "README.md"
+  ],
   "devDependencies": {
     "uglify-js": "^3.17.4"
   }
