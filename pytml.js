@@ -1,6 +1,7 @@
 (function(window) {
     class PYTML {
         constructor() {
+            this.pyodide = null;
             this.ready = false;
             this.queue = [];
             this.init();
@@ -8,86 +9,122 @@
 
         async init() {
             console.log('PYTML: Loading Python...');
+            this.showLoader();
             
-            // Show loading indicator
-            this.showStatus();
+            // Load Pyodide
+            if (typeof loadPyodide === 'undefined') {
+                await this.loadScript('https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js');
+            }
+            
+            this.pyodide = await loadPyodide({
+                indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/'
+            });
+            
+            // Load common libraries
+            await this.pyodide.loadPackage(['numpy', 'pandas']);
+            
+            this.ready = true;
+            this.hideLoader();
+            this.processPage();
+        }
+
+        async run(code, inputs = {}) {
+            if (!this.ready) await this.wait();
             
             try {
-                // Load Pyodide script
-                if (typeof loadPyodide === 'undefined') {
-                    await this.loadScript('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
+                // Set input variables
+                let inputCode = '';
+                for (let [k, v] of Object.entries(inputs)) {
+                    inputCode += `${k} = ${JSON.stringify(v)}\n`;
                 }
                 
-                // Initialize Pyodide
-                this.pyodide = await loadPyodide({
-                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+                // Execute Python
+                const result = await this.pyodide.runPythonAsync(`
+import sys
+from io import StringIO
+sys.stdout = StringIO()
+try:
+    ${inputCode}
+    ${code}
+    output = sys.stdout.getvalue()
+except Exception as e:
+    output = str(e)
+sys.stdout = sys.__stdout__
+output
+                `);
+                
+                return result;
+            } catch(e) {
+                return `Error: ${e.message}`;
+            }
+        }
+
+        async convertTag(pytmlTag) {
+            let code = pytmlTag.textContent;
+            let targetId = pytmlTag.getAttribute('target');
+            let target = targetId ? document.getElementById(targetId) : pytmlTag;
+            
+            let result = await this.run(code);
+            if (target) {
+                target.innerHTML = result;
+            }
+        }
+
+        processPage() {
+            // Find all <pytml> tags
+            let tags = document.querySelectorAll('pytml');
+            for (let tag of tags) {
+                this.convertTag(tag);
+            }
+            
+            // Handle buttons with data-python
+            document.querySelectorAll('[data-python]').forEach(btn => {
+                let code = btn.getAttribute('data-python');
+                let target = btn.getAttribute('data-target');
+                
+                btn.onclick = async () => {
+                    let inputs = this.collectInputs(btn);
+                    let result = await this.run(code, inputs);
+                    if (target) {
+                        let out = document.querySelector(target);
+                        if (out) out.textContent = result;
+                    }
+                };
+            });
+        }
+
+        collectInputs(btn) {
+            let inputs = {};
+            let form = btn.closest('[data-python-form]');
+            if (form) {
+                form.querySelectorAll('input, select').forEach(el => {
+                    if (el.name) {
+                        inputs[el.name] = el.type === 'number' ? parseFloat(el.value) : el.value;
+                    }
                 });
-                
-                this.ready = true;
-                console.log('PYTML: Python ready!');
-                this.hideStatus();
-                
-                // Process queued callbacks
-                this.queue.forEach(cb => cb());
-                this.queue = [];
-                
-                // Process page
-                this.processPage();
-                
-            } catch (error) {
-                console.error('PYTML Error:', error);
-                this.showError(error.message);
+            }
+            return inputs;
+        }
+
+        showLoader() {
+            let loader = document.getElementById('pytml-loader');
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.id = 'pytml-loader';
+                loader.innerHTML = 'Loading Python (first time: 10-15 seconds)...';
+                loader.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#007acc;color:#fff;padding:10px;border-radius:5px;z-index:9999';
+                document.body.appendChild(loader);
             }
         }
 
-        showStatus() {
-            let div = document.getElementById('pytml-status');
-            if (!div) {
-                div = document.createElement('div');
-                div.id = 'pytml-status';
-                div.style.cssText = `
-                    position: fixed;
-                    bottom: 10px;
-                    right: 10px;
-                    background: #007acc;
-                    color: white;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-size: 12px;
-                    font-family: monospace;
-                    z-index: 9999;
-                `;
-                div.textContent = 'PYTML: Loading Python (first time takes 5-10s)...';
-                document.body.appendChild(div);
-            }
-        }
-
-        hideStatus() {
-            const div = document.getElementById('pytml-status');
-            if (div) div.remove();
-        }
-
-        showError(message) {
-            const div = document.createElement('div');
-            div.style.cssText = `
-                position: fixed;
-                top: 10px;
-                right: 10px;
-                background: #dc3545;
-                color: white;
-                padding: 10px;
-                border-radius: 4px;
-                font-size: 12px;
-                z-index: 9999;
-            `;
-            div.textContent = `PYTML Error: ${message}`;
-            document.body.appendChild(div);
-            setTimeout(() => div.remove(), 5000);
+        hideLoader() {
+            let loader = document.getElementById('pytml-loader');
+            if (loader) loader.remove();
         }
 
         loadScript(src) {
             return new Promise((resolve, reject) => {
-                const script = document.createElement('script');
+                let script = document.createElement('script');
                 script.src = src;
                 script.onload = resolve;
                 script.onerror = reject;
@@ -98,106 +135,6 @@
         async wait() {
             if (this.ready) return;
             return new Promise(resolve => this.queue.push(resolve));
-        }
-
-        async run(code, inputs = {}) {
-            await this.wait();
-            
-            try {
-                // Build input variables
-                let inputCode = '';
-                for (const [key, value] of Object.entries(inputs)) {
-                    if (typeof value === 'string') {
-                        inputCode += `${key} = "${value.replace(/"/g, '\\"')}"\n`;
-                    } else {
-                        inputCode += `${key} = ${JSON.stringify(value)}\n`;
-                    }
-                }
-                
-                // Execute Python and capture output
-                const result = await this.pyodide.runPythonAsync(`
-import sys
-from io import StringIO
-
-old_stdout = sys.stdout
-sys.stdout = StringIO()
-
-try:
-    ${inputCode}
-    ${code}
-    output = sys.stdout.getvalue()
-except Exception as e:
-    output = f"Error: {str(e)}"
-finally:
-    sys.stdout = old_stdout
-
-output
-                `);
-                
-                return result;
-            } catch (error) {
-                return `Error: ${error.message}`;
-            }
-        }
-
-        collectInputs(element) {
-            const inputs = {};
-            const form = element.closest('[data-python-form]');
-            
-            if (form) {
-                const elements = form.querySelectorAll('input, select, textarea');
-                for (const el of elements) {
-                    if (el.name) {
-                        let value = el.value;
-                        if (el.type === 'number') {
-                            value = parseFloat(value);
-                        } else if (el.type === 'checkbox') {
-                            value = el.checked;
-                        }
-                        inputs[el.name] = value;
-                    }
-                }
-            }
-            return inputs;
-        }
-
-        async processPage() {
-            await this.wait();
-            
-            // Handle data-python-text
-            const textElements = document.querySelectorAll('[data-python-text]');
-            for (const el of textElements) {
-                const code = el.getAttribute('data-python-text');
-                const result = await this.run(`print(${code})`);
-                if (el) el.textContent = result.trim();
-            }
-            
-            // Handle data-python-html
-            const htmlElements = document.querySelectorAll('[data-python-html]');
-            for (const el of htmlElements) {
-                const code = el.getAttribute('data-python-html');
-                const result = await this.run(`print(${code})`);
-                if (el) el.innerHTML = result.trim();
-            }
-            
-            // Handle data-python buttons
-            const buttons = document.querySelectorAll('[data-python]');
-            for (const btn of buttons) {
-                const code = btn.getAttribute('data-python');
-                const target = btn.getAttribute('data-target');
-                
-                btn.addEventListener('click', async () => {
-                    const inputs = this.collectInputs(btn);
-                    const result = await this.run(code, inputs);
-                    
-                    if (target) {
-                        const targetEl = document.querySelector(target);
-                        if (targetEl) {
-                            targetEl.textContent = result;
-                        }
-                    }
-                });
-            }
         }
     }
 
