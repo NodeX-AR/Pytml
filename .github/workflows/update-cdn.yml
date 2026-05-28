@@ -1,0 +1,17 @@
+name: Update CDN Cache
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pytml.js'
+      - 'pytml.min.js'
+
+jobs:
+  purge-cdn:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge jsDelivr cache
+        run: |
+          curl -X PURGE https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml/pytml.min.js
+          curl -X PURGE https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@latest/pytml.min.js
