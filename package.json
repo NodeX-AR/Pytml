@@ -1,0 +1,18 @@
+{
+  "name": "pytml",
+  "version": "3.1.0",
+  "description": "Python in HTML - Client-side Python execution with full error handling",
+  "main": "pytml.js",
+  "scripts": {
+    "build": "uglifyjs pytml.js -o pytml.min.js",
+    "test": "node test.js"
+  },
+  "keywords": ["python", "html", "webassembly", "pyodide", "client-side"],
+  "author": "Aswanth R (NodeX-AR)",
+  "license": "MIT",
+  "files": ["pytml.js", "pytml.min.js", "worker.js"],
+  "dependencies": {},
+  "devDependencies": {
+    "uglify-js": "^3.17.4"
+  }
+}
