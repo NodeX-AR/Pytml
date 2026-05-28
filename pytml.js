@@ -1,31 +1,248 @@
-(function() {
-    // Create a clean iframe to run Python (bypasses CSP)
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    
-    const win = iframe.contentWindow;
-    const doc = iframe.contentDocument;
-    
-    // Load Pyodide in iframe (no CSP restrictions)
-    const script = doc.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js';
-    script.onload = async () => {
-        const pyodide = await win.loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/'
-        });
-        
-        // Run Python files
-        document.querySelectorAll('script[type="text/python"]').forEach(async (tag) => {
-            const response = await fetch(tag.src);
-            const code = await response.text();
+(function(window) {
+    class PYTML {
+        constructor() {
+            this.worker = null;
+            this.callbacks = new Map();
+            this.init();
+        }
+
+        async init() {
+            console.log('PYTML: Initializing...');
+            this.showStatus('Loading Python (first time: 10-15s)...');
+
+            try {
+                const workerUrl = 'https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@latest/worker.js';
+                const response = await fetch(workerUrl);
+                let workerCode = await response.text();
+
+                const blob = new Blob([workerCode], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                this.worker = new Worker(blobUrl);
+
+                this.worker.onmessage = (event) => {
+                    const { id, success, output, error } = event.data;
+                    if (this.callbacks.has(id)) {
+                        const callback = this.callbacks.get(id);
+                        if (success) {
+                            callback.resolve(output);
+                        } else {
+                            callback.reject(new Error(error));
+                        }
+                        this.callbacks.delete(id);
+                    }
+                };
+
+                this.worker.onerror = (error) => {
+                    console.error('Worker error:', error);
+                    this.showStatus('Worker error: ' + error.message, true);
+                };
+
+                await this.waitForWorker();
+                this.hideStatus();
+                console.log('PYTML: Ready!');
+
+                await this.processPage();
+                await this.loadExternalPythonFiles();
+
+            } catch (error) {
+                console.error('PYTML Error:', error);
+                this.showStatus('Failed to load: ' + error.message, true);
+            }
+        }
+
+        // NEW: Load external .py files
+        async loadExternalPythonFiles() {
+            const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
             
-            const result = await pyodide.runPythonAsync(code);
-            
-            const out = document.createElement('pre');
-            out.textContent = result;
-            document.body.appendChild(out);
+            for (let scriptTag of pyScripts) {
+                const pyFile = scriptTag.getAttribute('src');
+                console.log(`Loading Python file: ${pyFile}`);
+                
+                try {
+                    const response = await fetch(pyFile);
+                    const code = await response.text();
+                    
+                    // Create output container near the script tag
+                    const outputId = `pytml-out-${Date.now()}-${Math.random()}`;
+                    const outputDiv = document.createElement('div');
+                    outputDiv.id = outputId;
+                    outputDiv.style.cssText = 'background:#f4f4f4;padding:15px;margin:10px 0;border-radius:5px;font-family:monospace';
+                    scriptTag.insertAdjacentElement('afterend', outputDiv);
+                    
+                    // Run Python code
+                    const result = await this.runPython(code, {});
+                    
+                    // Display output
+                    outputDiv.innerHTML = `<strong>📄 Output from ${pyFile}:</strong><br><pre style="margin:10px 0 0 0;background:#fff;padding:10px;border-radius:3px">${this.escapeHtml(result)}</pre>`;
+                    
+                    // Remove the script tag (optional)
+                    // scriptTag.remove();
+                    
+                } catch(e) {
+                    console.error(`Error loading ${pyFile}:`, e);
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.cssText = 'background:#dc3545;color:#fff;padding:15px;margin:10px 0;border-radius:5px';
+                    errorDiv.textContent = `Error loading ${pyFile}: ${e.message}`;
+                    scriptTag.insertAdjacentElement('afterend', errorDiv);
+                }
+            }
+        }
+
+        cleanPythonCode(code) {
+            let cleaned = code.replace(/<!--[\s\S]*?-->/g, '');
+            cleaned = cleaned.replace(/&lt;/g, '<');
+            cleaned = cleaned.replace(/&gt;/g, '>');
+            cleaned = cleaned.replace(/&amp;/g, '&');
+            cleaned = cleaned.replace(/&quot;/g, '"');
+            cleaned = cleaned.replace(/\r\n/g, '\n');
+            cleaned = cleaned.replace(/\n\s*\n/g, '\n');
+            return cleaned;
+        }
+
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        waitForWorker() {
+            return new Promise((resolve, reject) => {
+                const id = 'ready_' + Date.now();
+                this.callbacks.set(id, { resolve, reject });
+                this.worker.postMessage({ type: 'ready', id: id });
+
+                setTimeout(() => {
+                    if (this.callbacks.has(id)) {
+                        this.callbacks.delete(id);
+                        reject(new Error('Worker timeout'));
+                    }
+                }, 30000);
+            });
+        }
+
+        async runPython(code, inputs = {}) {
+            const cleanedCode = this.cleanPythonCode(code);
+
+            return new Promise((resolve, reject) => {
+                const id = Date.now() + '-' + Math.random();
+                this.callbacks.set(id, { resolve, reject });
+
+                this.worker.postMessage({
+                    type: 'run',
+                    id: id,
+                    code: cleanedCode,
+                    inputs: inputs
+                });
+
+                setTimeout(() => {
+                    if (this.callbacks.has(id)) {
+                        this.callbacks.delete(id);
+                        reject(new Error('Execution timeout (10s)'));
+                    }
+                }, 10000);
+            });
+        }
+
+        collectInputs(btn) {
+            const inputs = {};
+            const form = btn.closest('[data-python-form]');
+            if (form) {
+                form.querySelectorAll('input, select, textarea').forEach(el => {
+                    if (el.name) {
+                        let value = el.value;
+                        if (el.type === 'number') {
+                            value = parseFloat(value);
+                        } else if (el.type === 'checkbox') {
+                            value = el.checked;
+                        }
+                        inputs[el.name] = value;
+                    }
+                });
+            }
+            return inputs;
+        }
+
+        async processPage() {
+            const textElements = document.querySelectorAll('[data-python-text]');
+            for (let el of textElements) {
+                const code = el.getAttribute('data-python-text');
+                try {
+                    const result = await this.runPython(`print(${code})`);
+                    el.textContent = result.trim();
+                } catch(e) {
+                    el.textContent = 'Error: ' + e.message;
+                }
+            }
+
+            const buttons = document.querySelectorAll('[data-python]');
+            for (let btn of buttons) {
+                const code = btn.getAttribute('data-python');
+                const target = btn.getAttribute('data-target');
+
+                btn.addEventListener('click', async () => {
+                    const inputs = this.collectInputs(btn);
+                    const originalText = btn.textContent;
+                    btn.disabled = true;
+                    btn.textContent = 'Processing...';
+
+                    try {
+                        const result = await this.runPython(code, inputs);
+                        if (target) {
+                            const out = document.querySelector(target);
+                            if (out) out.textContent = result;
+                        }
+                    } catch(e) {
+                        if (target) {
+                            const out = document.querySelector(target);
+                            if (out) out.textContent = 'Error: ' + e.message;
+                        }
+                    } finally {
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    }
+                });
+            }
+        }
+
+        showStatus(message, isError = false) {
+            let status = document.getElementById('pytml-status');
+            if (!status) {
+                status = document.createElement('div');
+                status.id = 'pytml-status';
+                status.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: #007acc;
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 5px;
+                    font-family: monospace;
+                    font-size: 12px;
+                    z-index: 10000;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                `;
+                document.body.appendChild(status);
+            }
+            status.textContent = message;
+            if (isError) {
+                status.style.background = '#dc3545';
+            } else {
+                status.style.background = '#007acc';
+            }
+        }
+
+        hideStatus() {
+            const status = document.getElementById('pytml-status');
+            if (status) status.remove();
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.pytml = new PYTML();
         });
-    };
-    doc.head.appendChild(script);
-})();
+    } else {
+        window.pytml = new PYTML();
+    }
+})(window);
