@@ -2,14 +2,12 @@
     class PYTML {
         constructor() {
             this.outputContainer = null;
-            this.inputResolve = null;
             this.init();
         }
 
         async init() {
-            console.log('PYTML: Initializing with custom HTML input...');
+            console.log('PYTML: Initializing with inline inputs...');
             this.createOutputContainer();
-            this.createInputModal();
             this.showStatus('Loading Python...');
             
             const script = document.createElement('script');
@@ -23,11 +21,10 @@
                 
                 window.pyodide = pyodide;
                 
-                // Setup Python environment with proper async input
+                // Override print and input
                 pyodide.runPython(`
 import sys
 import js
-import asyncio
 from js import document
 
 class HTMLOutput:
@@ -39,24 +36,11 @@ class HTMLOutput:
 
 sys.stdout = HTMLOutput()
 
-# Async input using JavaScript modal
-async def async_input(prompt):
-    """Async input that shows HTML modal"""
-    future = asyncio.Future()
-    js.showInputModal(prompt, future)
-    result = await future
-    return result
-
-# Create a sync wrapper that runs the async function
+# Override input to use inline HTML
 def input(prompt=""):
-    """Synchronous wrapper for async_input"""
     if prompt:
-        print(prompt, end="", flush=True)
-    # Get the current event loop and run until complete
-    loop = asyncio.get_event_loop()
-    return loop.run_until_complete(async_input(prompt))
-
-print("Ready! Python input() will use custom HTML modal.")
+        print(prompt)
+    return js.createInlineInput(str(prompt))
 `);
                 
                 this.hideStatus();
@@ -100,103 +84,6 @@ print("Ready! Python input() will use custom HTML modal.")
             }
         }
 
-        createInputModal() {
-            const modalHTML = `
-                <div id="pytml-modal" style="
-                    display: none;
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.7);
-                    backdrop-filter: blur(5px);
-                    z-index: 10000;
-                    justify-content: center;
-                    align-items: center;
-                ">
-                    <div style="
-                        background: linear-gradient(135deg, #1a1f3a 0%, #0a0e27 100%);
-                        border-radius: 20px;
-                        padding: 30px;
-                        max-width: 450px;
-                        width: 90%;
-                        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
-                        border: 1px solid rgba(102, 126, 234, 0.5);
-                    ">
-                        <h3 style="color: #667eea; margin: 0 0 20px 0; font-family: sans-serif;">📝 Python Input</h3>
-                        <p id="pytml-modal-prompt" style="color: #e0e0e0; font-family: monospace; font-size: 16px; margin-bottom: 20px;"></p>
-                        <input type="text" id="pytml-modal-input" style="
-                            width: 100%;
-                            padding: 12px 16px;
-                            background: rgba(255,255,255,0.1);
-                            border: 1px solid rgba(102, 126, 234, 0.5);
-                            border-radius: 10px;
-                            color: white;
-                            font-size: 14px;
-                            outline: none;
-                            box-sizing: border-box;
-                        " autofocus>
-                        <div style="display: flex; gap: 12px; margin-top: 20px;">
-                            <button id="pytml-modal-submit" style="
-                                flex: 1;
-                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                border: none;
-                                padding: 12px;
-                                border-radius: 10px;
-                                color: white;
-                                font-weight: 600;
-                                cursor: pointer;
-                            ">Submit</button>
-                            <button id="pytml-modal-cancel" style="
-                                flex: 1;
-                                background: rgba(250, 112, 154, 0.2);
-                                border: 1px solid #fa709a;
-                                padding: 12px;
-                                border-radius: 10px;
-                                color: #fa709a;
-                                font-weight: 600;
-                                cursor: pointer;
-                            ">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.body.insertAdjacentHTML('beforeend', modalHTML);
-            
-            const modal = document.getElementById('pytml-modal');
-            const closeBtn = document.getElementById('pytml-modal-submit');
-            const cancelBtn = document.getElementById('pytml-modal-cancel');
-            const submitBtn = document.getElementById('pytml-modal-submit');
-            const inputField = document.getElementById('pytml-modal-input');
-            
-            const submit = () => {
-                const value = inputField.value;
-                modal.style.display = 'none';
-                if (this.inputResolve) {
-                    this.inputResolve(value);
-                    this.inputResolve = null;
-                }
-                inputField.value = '';
-            };
-            
-            const cancel = () => {
-                modal.style.display = 'none';
-                if (this.inputResolve) {
-                    this.inputResolve('');
-                    this.inputResolve = null;
-                }
-                inputField.value = '';
-            };
-            
-            submitBtn.onclick = submit;
-            cancelBtn.onclick = cancel;
-            inputField.onkeypress = (e) => {
-                if (e.key === 'Enter') submit();
-            };
-        }
-
         async loadExternalPythonFiles() {
             const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
 
@@ -209,13 +96,122 @@ print("Ready! Python input() will use custom HTML modal.")
                     const code = await response.text();
                     
                     this.clearOutput();
-                    await window.pyodide.runPythonAsync(code);
+                    
+                    // Run Python code line by line to handle inputs
+                    await this.runPythonWithInlineInputs(code);
                     scriptTag.remove();
 
                 } catch(e) {
                     this.addError(e.message);
                 }
             }
+        }
+
+        async runPythonWithInlineInputs(code) {
+            // Split code into lines
+            const lines = code.split('\n');
+            let result = '';
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Check if line contains input()
+                if (line.includes('input(')) {
+                    // Extract prompt
+                    const promptMatch = line.match(/input\(["'](.+?)["']\)/);
+                    if (promptMatch) {
+                        const prompt = promptMatch[1];
+                        const value = await this.createInlineInput(prompt);
+                        // Replace the input() call with the value
+                        const newLine = line.replace(/input\(["'].+?["']\)/, `"${value}"`);
+                        result += newLine + '\n';
+                    }
+                } else {
+                    result += line + '\n';
+                }
+            }
+            
+            // Execute the modified code
+            await window.pyodide.runPythonAsync(result);
+        }
+
+        createInlineInput(prompt) {
+            return new Promise((resolve) => {
+                // Create input container
+                const container = document.createElement('div');
+                container.style.cssText = `
+                    background: rgba(102, 126, 234, 0.1);
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    border: 1px solid rgba(102, 126, 234, 0.3);
+                `;
+                
+                // Add prompt text
+                const promptText = document.createElement('div');
+                promptText.textContent = prompt;
+                promptText.style.cssText = `
+                    color: #ffd93d;
+                    font-weight: 500;
+                    margin-bottom: 10px;
+                    font-family: system-ui, sans-serif;
+                `;
+                container.appendChild(promptText);
+                
+                // Add input field
+                const inputField = document.createElement('input');
+                inputField.type = 'text';
+                inputField.placeholder = 'Type your answer here...';
+                inputField.style.cssText = `
+                    width: 100%;
+                    padding: 10px 12px;
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(102, 126, 234, 0.5);
+                    border-radius: 8px;
+                    color: white;
+                    font-size: 14px;
+                    font-family: monospace;
+                    outline: none;
+                    box-sizing: border-box;
+                    margin-bottom: 10px;
+                `;
+                container.appendChild(inputField);
+                
+                // Add submit button
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = '✓ Submit';
+                submitBtn.style.cssText = `
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    padding: 8px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                `;
+                container.appendChild(submitBtn);
+                
+                // Add to output container
+                this.outputContainer.appendChild(container);
+                
+                // Handle submission
+                const submit = () => {
+                    const value = inputField.value;
+                    container.remove();
+                    resolve(value);
+                };
+                
+                submitBtn.onclick = submit;
+                inputField.onkeypress = (e) => {
+                    if (e.key === 'Enter') submit();
+                };
+                
+                inputField.focus();
+                
+                // Scroll to input
+                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
         }
 
         clearOutput() {
@@ -228,11 +224,25 @@ print("Ready! Python input() will use custom HTML modal.")
             if (!this.outputContainer) return;
             
             const line = document.createElement('div');
+            
+            // Color coding for different output types
+            let color = '#43e97b';
+            if (text.includes('Error') || text.includes('not found')) {
+                color = '#fa709a';
+            } else if (text.includes('successfully')) {
+                color = '#43e97b';
+            } else if (text.includes('+----')) {
+                color = '#667eea';
+            } else {
+                color = '#e0e0e0';
+            }
+            
             line.style.cssText = `
-                color: #43e97b;
+                color: ${color};
                 margin: 4px 0;
                 line-height: 1.5;
                 font-family: monospace;
+                white-space: pre-wrap;
             `;
             line.textContent = text;
             this.outputContainer.appendChild(line);
@@ -275,6 +285,11 @@ print("Ready! Python input() will use custom HTML modal.")
             }
             status.textContent = message;
             if (isError) status.style.background = '#fa709a';
+            setTimeout(() => {
+                if (status && !isError) {
+                    status.style.opacity = '0.7';
+                }
+            }, 2000);
         }
 
         hideStatus() {
@@ -290,21 +305,8 @@ print("Ready! Python input() will use custom HTML modal.")
         }
     };
 
-    window.showInputModal = function(prompt, future) {
-        const modal = document.getElementById('pytml-modal');
-        const promptEl = document.getElementById('pytml-modal-prompt');
-        const inputEl = document.getElementById('pytml-modal-input');
-        
-        promptEl.textContent = prompt;
-        inputEl.value = '';
-        modal.style.display = 'flex';
-        inputEl.focus();
-        
-        if (window.pytmlInstance) {
-            window.pytmlInstance.inputResolve = (value) => {
-                future.resolve(value);
-            };
-        }
+    window.createInlineInput = function(prompt) {
+        return window.pytmlInstance.createInlineInput(prompt);
     };
 
     if (document.readyState === 'loading') {
