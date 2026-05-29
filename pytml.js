@@ -2,7 +2,6 @@
     class PYTML {
         constructor() {
             this.outputContainer = null;
-            this.pendingInput = null;
             this.inputResolve = null;
             this.init();
         }
@@ -18,40 +17,46 @@
             
             script.onload = async () => {
                 this.showStatus('Initializing Python...');
-                window.pyodide = await loadPyodide({
+                let pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
                 });
                 
-                // Override print and input with HTML versions
-                window.pyodide.runPython(`
+                window.pyodide = pyodide;
+                
+                // Setup Python environment with proper async input
+                pyodide.runPython(`
 import sys
 import js
-from js import document, window
+import asyncio
+from js import document
 
 class HTMLOutput:
-    def __init__(self):
-        pass
-    
     def write(self, text):
         if text:
-            js.displayStyledOutput(text)
-    
+            js.displayStyledOutput(str(text))
     def flush(self):
         pass
 
-# Override stdout
 sys.stdout = HTMLOutput()
 
-# Override input with custom HTML modal
-async def html_input(prompt=""):
-    import asyncio
+# Async input using JavaScript modal
+async def async_input(prompt):
+    """Async input that shows HTML modal"""
     future = asyncio.Future()
     js.showInputModal(prompt, future)
     result = await future
     return result
 
-# Replace built-in input
-__builtins__.input = html_input
+# Create a sync wrapper that runs the async function
+def input(prompt=""):
+    """Synchronous wrapper for async_input"""
+    if prompt:
+        print(prompt, end="", flush=True)
+    # Get the current event loop and run until complete
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(async_input(prompt))
+
+print("Ready! Python input() will use custom HTML modal.")
 `);
                 
                 this.hideStatus();
@@ -75,7 +80,7 @@ __builtins__.input = html_input
                     border-radius: 15px;
                     padding: 20px;
                     margin: 20px 0;
-                    font-family: 'Courier New', 'Fira Code', monospace;
+                    font-family: 'Courier New', monospace;
                     font-size: 14px;
                     box-shadow: 0 10px 40px rgba(0,0,0,0.3);
                     border: 1px solid rgba(102, 126, 234, 0.3);
@@ -96,7 +101,6 @@ __builtins__.input = html_input
         }
 
         createInputModal() {
-            // Create modal HTML (hidden initially)
             const modalHTML = `
                 <div id="pytml-modal" style="
                     display: none;
@@ -119,35 +123,9 @@ __builtins__.input = html_input
                         width: 90%;
                         box-shadow: 0 25px 50px rgba(0,0,0,0.5);
                         border: 1px solid rgba(102, 126, 234, 0.5);
-                        animation: slideIn 0.3s ease;
                     ">
-                        <div style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            margin-bottom: 20px;
-                        ">
-                            <h3 style="
-                                color: #667eea;
-                                margin: 0;
-                                font-family: sans-serif;
-                            ">📝 Python Input Required</h3>
-                            <button id="pytml-modal-close" style="
-                                background: none;
-                                border: none;
-                                color: #8892b0;
-                                font-size: 24px;
-                                cursor: pointer;
-                                transition: color 0.2s;
-                            ">&times;</button>
-                        </div>
-                        <p id="pytml-modal-prompt" style="
-                            color: #e0e0e0;
-                            font-family: monospace;
-                            font-size: 16px;
-                            margin-bottom: 20px;
-                            line-height: 1.5;
-                        "></p>
+                        <h3 style="color: #667eea; margin: 0 0 20px 0; font-family: sans-serif;">📝 Python Input</h3>
+                        <p id="pytml-modal-prompt" style="color: #e0e0e0; font-family: monospace; font-size: 16px; margin-bottom: 20px;"></p>
                         <input type="text" id="pytml-modal-input" style="
                             width: 100%;
                             padding: 12px 16px;
@@ -156,11 +134,9 @@ __builtins__.input = html_input
                             border-radius: 10px;
                             color: white;
                             font-size: 14px;
-                            font-family: monospace;
                             outline: none;
-                            transition: all 0.3s;
                             box-sizing: border-box;
-                        " placeholder="Type your answer here...">
+                        " autofocus>
                         <div style="display: flex; gap: 12px; margin-top: 20px;">
                             <button id="pytml-modal-submit" style="
                                 flex: 1;
@@ -171,8 +147,7 @@ __builtins__.input = html_input
                                 color: white;
                                 font-weight: 600;
                                 cursor: pointer;
-                                transition: transform 0.2s;
-                            ">✓ Submit</button>
+                            ">Submit</button>
                             <button id="pytml-modal-cancel" style="
                                 flex: 1;
                                 background: rgba(250, 112, 154, 0.2);
@@ -182,52 +157,19 @@ __builtins__.input = html_input
                                 color: #fa709a;
                                 font-weight: 600;
                                 cursor: pointer;
-                                transition: all 0.2s;
-                            ">✗ Cancel</button>
+                            ">Cancel</button>
                         </div>
                     </div>
                 </div>
-                <style>
-                    @keyframes slideIn {
-                        from {
-                            opacity: 0;
-                            transform: translateY(-30px);
-                        }
-                        to {
-                            opacity: 1;
-                            transform: translateY(0);
-                        }
-                    }
-                    #pytml-modal-input:focus {
-                        border-color: #43e97b;
-                        box-shadow: 0 0 10px rgba(67, 233, 123, 0.3);
-                    }
-                    #pytml-modal-submit:hover {
-                        transform: translateY(-2px);
-                        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-                    }
-                    #pytml-modal-cancel:hover {
-                        background: rgba(250, 112, 154, 0.4);
-                    }
-                </style>
             `;
             
             document.body.insertAdjacentHTML('beforeend', modalHTML);
             
-            // Setup event listeners
             const modal = document.getElementById('pytml-modal');
-            const closeBtn = document.getElementById('pytml-modal-close');
+            const closeBtn = document.getElementById('pytml-modal-submit');
             const cancelBtn = document.getElementById('pytml-modal-cancel');
             const submitBtn = document.getElementById('pytml-modal-submit');
             const inputField = document.getElementById('pytml-modal-input');
-            
-            const closeModal = () => {
-                modal.style.display = 'none';
-                if (this.inputResolve) {
-                    this.inputResolve('');
-                    this.inputResolve = null;
-                }
-            };
             
             const submit = () => {
                 const value = inputField.value;
@@ -239,9 +181,17 @@ __builtins__.input = html_input
                 inputField.value = '';
             };
             
-            closeBtn.onclick = closeModal;
-            cancelBtn.onclick = closeModal;
+            const cancel = () => {
+                modal.style.display = 'none';
+                if (this.inputResolve) {
+                    this.inputResolve('');
+                    this.inputResolve = null;
+                }
+                inputField.value = '';
+            };
+            
             submitBtn.onclick = submit;
+            cancelBtn.onclick = cancel;
             inputField.onkeypress = (e) => {
                 if (e.key === 'Enter') submit();
             };
@@ -278,108 +228,12 @@ __builtins__.input = html_input
             if (!this.outputContainer) return;
             
             const line = document.createElement('div');
-            
-            // Auto-detect and style different output types
-            let style = '';
-            
-            if (text.includes('+--') || text.includes('+--')) {
-                // Borders/separators
-                style = `
-                    color: #667eea;
-                    font-weight: bold;
-                    margin: 8px 0;
-                    letter-spacing: 1px;
-                    text-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
-                `;
-            } 
-            else if (text.includes('LIBRARY MANAGEMENT SYSTEM') || text.includes('Library Statistics')) {
-                // Main headers
-                style = `
-                    color: #f093fb;
-                    font-weight: bold;
-                    font-size: 1.15em;
-                    text-align: center;
-                    margin: 15px 0;
-                    text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    background-clip: text;
-                `;
-            }
-            else if (text.includes('Options :') || text.includes('Options')) {
-                // Menu headers
-                style = `
-                    color: #4facfe;
-                    font-weight: bold;
-                    font-size: 1.05em;
-                    margin: 12px 0 8px 0;
-                    border-left: 3px solid #4facfe;
-                    padding-left: 10px;
-                `;
-            }
-            else if (text.match(/^\d\./) || text.match(/^\d\)/)) {
-                // Menu options
-                style = `
-                    color: #43e97b;
-                    margin: 6px 0 6px 25px;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    padding: 4px 8px;
-                    border-radius: 5px;
-                `;
-                line.onmouseover = () => {
-                    line.style.background = 'rgba(67, 233, 123, 0.1)';
-                    line.style.transform = 'translateX(5px)';
-                };
-                line.onmouseout = () => {
-                    line.style.background = 'transparent';
-                    line.style.transform = 'translateX(0)';
-                };
-            }
-            else if (text.includes('successfully') || text.includes('success')) {
-                // Success messages
-                style = `
-                    color: #43e97b;
-                    font-weight: bold;
-                    margin: 10px 0;
-                    padding: 8px 12px;
-                    background: rgba(67, 233, 123, 0.1);
-                    border-left: 3px solid #43e97b;
-                    border-radius: 8px;
-                    animation: fadeIn 0.5s;
-                `;
-            }
-            else if (text.includes('Error') || text.includes('not found') || text.includes('invalid') || text.includes('already')) {
-                // Error/warning messages
-                style = `
-                    color: #fa709a;
-                    margin: 10px 0;
-                    padding: 8px 12px;
-                    background: rgba(250, 112, 154, 0.1);
-                    border-left: 3px solid #fa709a;
-                    border-radius: 8px;
-                `;
-            }
-            else if (text.includes('Enter') || text.includes(':')) {
-                // Prompts that would normally use input
-                style = `
-                    color: #ffd93d;
-                    margin: 15px 0 5px 0;
-                    font-style: italic;
-                    font-weight: 500;
-                `;
-            }
-            else {
-                // Normal output
-                style = `
-                    color: #e0e0e0;
-                    margin: 4px 0;
-                    line-height: 1.5;
-                `;
-            }
-            
-            line.style.cssText = style;
+            line.style.cssText = `
+                color: #43e97b;
+                margin: 4px 0;
+                line-height: 1.5;
+                font-family: monospace;
+            `;
             line.textContent = text;
             this.outputContainer.appendChild(line);
             line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -391,10 +245,9 @@ __builtins__.input = html_input
             errorDiv.style.cssText = `
                 color: #fa709a;
                 background: rgba(250, 112, 154, 0.15);
-                padding: 12px;
+                padding: 10px;
                 margin: 10px 0;
-                border-radius: 10px;
-                border-left: 4px solid #fa709a;
+                border-radius: 8px;
                 font-family: monospace;
             `;
             errorDiv.textContent = `❌ ${text}`;
@@ -410,22 +263,18 @@ __builtins__.input = html_input
                     position: fixed;
                     bottom: 20px;
                     right: 20px;
-                    background: linear-gradient(135deg, #667eea, #764ba2);
+                    background: #667eea;
                     color: white;
-                    padding: 10px 20px;
-                    border-radius: 25px;
+                    padding: 8px 16px;
+                    border-radius: 20px;
                     font-family: monospace;
                     font-size: 12px;
                     z-index: 9999;
-                    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
                 `;
                 document.body.appendChild(status);
             }
             status.textContent = message;
             if (isError) status.style.background = '#fa709a';
-            setTimeout(() => {
-                if (status && !isError) status.style.opacity = '0.7';
-            }, 2000);
         }
 
         hideStatus() {
@@ -434,7 +283,7 @@ __builtins__.input = html_input
         }
     }
 
-    // Global functions called by Python
+    // Global functions for Python to call
     window.displayStyledOutput = function(text) {
         if (window.pytmlInstance) {
             window.pytmlInstance.addStyledOutput(text);
@@ -451,11 +300,11 @@ __builtins__.input = html_input
         modal.style.display = 'flex';
         inputEl.focus();
         
-        // Store the resolve function
-        const originalResolve = window.pytmlInstance?.inputResolve;
-        window.pytmlInstance.inputResolve = (value) => {
-            future.resolve(value);
-        };
+        if (window.pytmlInstance) {
+            window.pytmlInstance.inputResolve = (value) => {
+                future.resolve(value);
+            };
+        }
     };
 
     if (document.readyState === 'loading') {
