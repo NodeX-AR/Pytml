@@ -26,6 +26,7 @@
 import sys
 import js
 from js import document
+import asyncio
 
 class HTMLOutput:
     def write(self, text):
@@ -36,12 +37,34 @@ class HTMLOutput:
 
 sys.stdout = HTMLOutput()
 
-# Override input to use inline HTML
-async def input(prompt=""):
+# Store the original input
+_original_input = __builtins__.input
+
+# Create async input function
+async def async_input(prompt=""):
     if prompt:
         print(prompt)
     result = await js.createInlineInput(str(prompt))
     return result
+
+# Create a sync wrapper that runs the async function
+def input(prompt=""):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+    
+    if loop and loop.is_running():
+        # Create a new task and wait for it
+        import concurrent.futures
+        future = asyncio.run_coroutine_threadsafe(async_input(prompt), loop)
+        return future.result()
+    else:
+        # Run in a new event loop
+        return asyncio.run(async_input(prompt))
+
+# Replace the built-in input
+__builtins__.input = input
 `);
                 
                 this.hideStatus();
@@ -98,7 +121,7 @@ async def input(prompt=""):
                     
                     this.clearOutput();
                     
-                    // Run Python code with async support
+                    // Run Python code
                     await this.runPythonWithInlineInputs(code);
                     scriptTag.remove();
 
@@ -109,35 +132,17 @@ async def input(prompt=""):
         }
 
         async runPythonWithInlineInputs(code) {
-            // Execute the code with async input support
-            const wrappedCode = `
-import asyncio
-import builtins
-
-# Store original input
-_original_input = builtins.input
-
-# Make sure we use the async input function
-async def _async_input_wrapper(prompt=""):
-    return await input(prompt)
-
-def _sync_input_wrapper(prompt=""):
-    # Run the async function synchronously
-    return asyncio.get_event_loop().run_until_complete(_async_input_wrapper(prompt))
-
-# Replace input globally
-builtins.input = _sync_input_wrapper
-
-# Execute the user's code
-try:
-    exec(${JSON.stringify(code)})
-finally:
-    # Restore original input
-    builtins.input = _original_input
-`;
-            
             try {
-                await window.pyodide.runPythonAsync(wrappedCode);
+                // Execute the code directly with async support
+                await window.pyodide.runPythonAsync(`
+import asyncio
+
+async def execute_user_code():
+    exec(${JSON.stringify(code)})
+
+# Run the user code
+asyncio.get_event_loop().run_until_complete(execute_user_code())
+`);
             } catch (error) {
                 this.addError(`Python execution error: ${error}`);
                 console.error(error);
