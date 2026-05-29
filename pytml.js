@@ -26,6 +26,7 @@
 import sys
 import js
 from js import document
+import asyncio
 
 class HTMLOutput:
     def write(self, text):
@@ -37,10 +38,14 @@ class HTMLOutput:
 sys.stdout = HTMLOutput()
 
 # Override input to use inline HTML
-def input(prompt=""):
+async def async_input(prompt=""):
     if prompt:
         print(prompt)
-    return js.createInlineInput(str(prompt))
+    result = await js.createInlineInput(str(prompt))
+    return result
+
+def input(prompt=""):
+    return asyncio.get_event_loop().run_until_complete(async_input(prompt))
 `);
                 
                 this.hideStatus();
@@ -97,7 +102,7 @@ def input(prompt=""):
                     
                     this.clearOutput();
                     
-                    // Run Python code with async support
+                    // Run Python code
                     await window.pyodide.runPythonAsync(code);
                     scriptTag.remove();
 
