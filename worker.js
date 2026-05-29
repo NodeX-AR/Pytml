@@ -1,11 +1,15 @@
-// worker.js
-importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
+// No importScripts needed anymore! Pyodide is already here
+// The pyodide.js file you embedded contains everything
+
 let pyodide;
 let inputCallbacks = new Map();
 
 async function initPyodide() {
     if (!pyodide) {
-        pyodide = await loadPyodide();
+        // loadPyodide is now globally available from your embedded file
+        pyodide = await loadPyodide({
+            indexURL: "https://pytml.vercel.app/"
+        });
         
         // Override Python's input() function
         pyodide.runPython(`
@@ -30,7 +34,7 @@ sys.stdin = _input_handler
 def input(prompt=""):
     if prompt:
         print(prompt, end="")
-    return asyncio.get_event_loop().run_until_complete(_input_handler.async_input(prompt))
+    return asyncio.get_event_loop().run_until_complete(_handler.async_input(prompt))
 `);
     }
     return pyodide;
@@ -72,7 +76,6 @@ sys.stdout = StringIO()
     }
     
     else if (type === 'input_response') {
-        // Send input back to Python
         pyodide.runPython(`_input_handler.send_input(${JSON.stringify(event.data.value)})`);
     }
 };
