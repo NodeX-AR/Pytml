@@ -1,6 +1,4 @@
-// pytml.js - Python in Browser with Inline Input
-// No popups - everything happens inline in the page
-
+// pytml.js - Fixed version with proper async input handling
 (function(window) {
     'use strict';
 
@@ -9,7 +7,6 @@
             this.ready = false;
             this.pyodide = null;
             this.output = null;
-            this.currentInputResolver = null;
             this.init();
         }
 
@@ -44,7 +41,6 @@
                     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                 `;
                 
-                // Add header
                 const header = document.createElement('div');
                 header.style.cssText = `
                     padding: 10px 15px;
@@ -57,7 +53,6 @@
                 header.textContent = 'Python Output';
                 output.appendChild(header);
                 
-                // Add content area
                 const content = document.createElement('div');
                 content.id = 'pytml-content';
                 content.style.cssText = `
@@ -99,7 +94,6 @@
 import sys
 import js
 import asyncio
-from pyodide.ffi import create_proxy
 from js import document, window
 
 class OutputCapture:
@@ -125,21 +119,17 @@ sys.stderr = OutputCapture()
 async def python_input(prompt=""):
     if prompt:
         print(prompt, end='')
-    # Call JavaScript function that returns a Promise
-    return await window.pytml.getInputInline(prompt)
+    result = await window.pytml.getInputInline(prompt)
+    return result
 
 import builtins
 builtins.input = python_input
+print("Python ready!")
 `);
         }
 
         async runPythonFiles() {
             const elements = document.querySelectorAll('link[type="text/python"], script[type="text/python"][src]');
-            
-            if (elements.length === 0) {
-                this.display('No Python files found. Use: <link type="text/python" href="yourfile.py">', 'warning');
-                return;
-            }
             
             for (let el of elements) {
                 let pythonFile = el.getAttribute('href') || el.getAttribute('src');
@@ -151,28 +141,20 @@ builtins.input = python_input
 
         async runPythonFile(filePath) {
             try {
-                this.display(`> Running: ${filePath}`, 'info');
+                this.display(f'Running: {filePath}', 'info');
                 const response = await fetch(filePath);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
                 const pythonCode = await response.text();
                 await this.pyodide.runPythonAsync(pythonCode);
-                this.display(`> Completed: ${filePath}`, 'success');
-                
+                this.display(f'Completed: {filePath}', 'success');
             } catch (error) {
                 this.display(`Error: ${error.message}`, 'error');
-                console.error(`Failed to run ${filePath}:`, error);
             }
         }
 
-        async getInputInline(prompt) {
+        getInputInline(prompt) {
             return new Promise((resolve) => {
-                // Create inline input element
-                const inputContainer = document.createElement('div');
-                inputContainer.style.cssText = `
+                const container = document.createElement('div');
+                container.style.cssText = `
                     margin: 10px 0;
                     padding: 10px;
                     background: #2d2d2d;
@@ -188,30 +170,23 @@ builtins.input = python_input
                     font-weight: bold;
                 `;
                 
-                const inputWrapper = document.createElement('div');
-                inputWrapper.style.cssText = `
-                    display: flex;
-                    gap: 10px;
-                    align-items: center;
-                `;
-                
                 const inputField = document.createElement('input');
                 inputField.type = 'text';
                 inputField.style.cssText = `
-                    flex: 1;
+                    width: calc(100% - 80px);
                     padding: 8px 12px;
                     background: #1e1e1e;
                     border: 1px solid #4ec9b0;
                     color: #d4d4d4;
                     border-radius: 4px;
-                    font-family: 'Courier New', monospace;
-                    font-size: 14px;
+                    font-family: monospace;
+                    margin-right: 10px;
                 `;
-                inputField.placeholder = 'Type your answer here...';
+                inputField.placeholder = 'Type here...';
                 
-                const submitButton = document.createElement('button');
-                submitButton.textContent = 'Submit';
-                submitButton.style.cssText = `
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = 'Submit';
+                submitBtn.style.cssText = `
                     padding: 8px 16px;
                     background: #4ec9b0;
                     color: #1e1e1e;
@@ -219,24 +194,21 @@ builtins.input = python_input
                     border-radius: 4px;
                     cursor: pointer;
                     font-weight: bold;
-                    transition: background 0.2s;
                 `;
-                submitButton.onmouseover = () => submitButton.style.background = '#5fd9c0';
-                submitButton.onmouseout = () => submitButton.style.background = '#4ec9b0';
                 
-                inputWrapper.appendChild(inputField);
-                inputWrapper.appendChild(submitButton);
-                inputContainer.appendChild(promptText);
-                inputContainer.appendChild(inputWrapper);
+                const wrapper = document.createElement('div');
+                wrapper.appendChild(inputField);
+                wrapper.appendChild(submitBtn);
+                container.appendChild(promptText);
+                container.appendChild(wrapper);
                 
-                this.output.appendChild(inputContainer);
+                this.output.appendChild(container);
                 inputField.focus();
                 
                 const submit = () => {
                     const value = inputField.value;
-                    inputContainer.remove();
+                    container.remove();
                     
-                    // Display what the user typed
                     const userLine = document.createElement('div');
                     userLine.style.cssText = `
                         padding: 5px 0;
@@ -249,13 +221,12 @@ builtins.input = python_input
                     resolve(value);
                 };
                 
-                submitButton.onclick = submit;
+                submitBtn.onclick = submit;
                 inputField.onkeypress = (e) => {
                     if (e.key === 'Enter') submit();
                 };
                 
-                // Auto-scroll to input
-                inputContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
 
@@ -268,25 +239,15 @@ builtins.input = python_input
             let color = '#d4d4d4';
             let borderLeft = 'none';
             
-            switch(type) {
-                case 'error':
-                    color = '#f48771';
-                    borderLeft = '3px solid #f48771';
-                    break;
-                case 'success':
-                    color = '#4ec9b0';
-                    borderLeft = '3px solid #4ec9b0';
-                    break;
-                case 'warning':
-                    color = '#ce9178';
-                    borderLeft = '3px solid #ce9178';
-                    break;
-                case 'info':
-                    color = '#569cd6';
-                    borderLeft = '3px solid #569cd6';
-                    break;
-                default:
-                    color = '#d4d4d4';
+            if (type === 'error') {
+                color = '#f48771';
+                borderLeft = '3px solid #f48771';
+            } else if (type === 'success') {
+                color = '#4ec9b0';
+                borderLeft = '3px solid #4ec9b0';
+            } else if (type === 'info') {
+                color = '#569cd6';
+                borderLeft = '3px solid #569cd6';
             }
             
             line.style.cssText = `
@@ -296,24 +257,15 @@ builtins.input = python_input
                 border-left: ${borderLeft};
                 padding-left: ${borderLeft !== 'none' ? '10px' : '0'};
                 white-space: pre-wrap;
-                word-wrap: break-word;
-                font-family: 'Courier New', monospace;
+                font-family: monospace;
                 font-size: 13px;
             `;
             
             this.output.appendChild(line);
             line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
-
-        clear() {
-            if (this.output) {
-                this.output.innerHTML = '';
-                this.display('Output cleared', 'info');
-            }
-        }
     }
 
-    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             window.pytml = new PYTML();
