@@ -12,7 +12,7 @@
             this.showStatus('Loading Python (first time: 10-15s)...');
 
             try {
-                const workerUrl = 'https://your-cdn.com/worker.js'; // Update this
+                const workerUrl = 'https://pytml.vercel.app/worker.js'; // Update this
                 const response = await fetch(workerUrl);
                 let workerCode = await response.text();
 
