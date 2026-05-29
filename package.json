@@ -1,12 +1,25 @@
 {
   "name": "pytml",
   "version": "1.0.0",
-  "description": "Python in HTML - Pure JavaScript Python interpreter",
-  "main": "pytml.min.js",
-  "scripts": {
-    "build": "uglifyjs pytml.js -o pytml.min.js"
-  },
-  "keywords": ["python", "html", "javascript", "interpreter"],
+  "description": "Run Python files in the browser like JavaScript",
+  "main": "pytml.js",
+  "browser": "pytml.js",
+  "files": [
+    "pytml.js",
+    "worker.js"
+  ],
+  "keywords": [
+    "python",
+    "browser",
+    "pyodide",
+    "webworker",
+    "client-side"
+  ],
   "author": "NodeX-AR",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NodeX-AR/Pytml.git"
+  },
+  "homepage": "https://github.com/NodeX-AR/Pytml#readme"
 }
