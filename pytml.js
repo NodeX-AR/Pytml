@@ -23,9 +23,11 @@
                 window.pyodide = pyodide;
                 
                 // Override print and input
-                await pyodide.runPythonAsync(`
+                pyodide.runPython(`
 import sys
 import js
+from js import document
+import asyncio
 
 class HTMLOutput:
     def write(self, text):
@@ -36,12 +38,16 @@ class HTMLOutput:
 
 sys.stdout = HTMLOutput()
 
-# Override input to use inline HTML with proper async handling
-async def input(prompt=""):
+# Create async input function
+async def async_input(prompt=""):
     if prompt:
         print(prompt)
     result = await js.createInlineInput(str(prompt))
     return result
+
+# Replace the built-in input with an async version
+import builtins
+builtins.input = async_input
 `);
                 
                 this.hideStatus();
@@ -98,8 +104,14 @@ async def input(prompt=""):
                     
                     this.clearOutput();
                     
-                    // Run Python code
-                    await window.pyodide.runPythonAsync(code);
+                    // Wrap the user code in an async function and execute it
+                    const wrappedCode = `
+async def __main__():
+${code.split('\n').map(line => '    ' + line).join('\n')}
+
+await __main__()
+`;
+                    await window.pyodide.runPythonAsync(wrappedCode);
                     scriptTag.remove();
 
                 } catch(e) {
@@ -198,7 +210,6 @@ async def input(prompt=""):
             
             const line = document.createElement('div');
             
-            // Color coding for different output types
             let color = '#43e97b';
             if (text.includes('Error') || text.includes('not found')) {
                 color = '#fa709a';
