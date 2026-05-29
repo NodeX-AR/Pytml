@@ -1,4 +1,4 @@
-// Load Pyodide from YOUR CDN (no CORS issues!)
+// Use Pyodide's official CDN (has all files)
 importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
 
 let pyodide;
@@ -32,7 +32,8 @@ sys.stdin = _input_handler
 def input(prompt=""):
     if prompt:
         print(prompt, end="")
-    return asyncio.get_event_loop().run_until_complete(_handler.async_input(prompt))
+    # FIXED: changed _handler to _input_handler
+    return asyncio.get_event_loop().run_until_complete(_input_handler.async_input(prompt))
 `);
     }
     return pyodide;
@@ -54,13 +55,17 @@ self.onmessage = async function(event) {
         try {
             const pyodide = await initPyodide();
             
+            // Capture stdout
             pyodide.runPython(`
 import sys
 from io import StringIO
 sys.stdout = StringIO()
 `);
             
+            // Run the code
             await pyodide.runPythonAsync(code);
+            
+            // Get output
             const output = pyodide.runPython('sys.stdout.getvalue()');
             
             self.postMessage({ id, success: true, output: output });
@@ -70,6 +75,7 @@ sys.stdout = StringIO()
     }
     
     else if (type === 'input_response') {
+        // Send input back to Python
         pyodide.runPython(`_input_handler.send_input(${JSON.stringify(event.data.value)})`);
     }
 };
