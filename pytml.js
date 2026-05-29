@@ -2,7 +2,6 @@
     class PYTML {
         constructor() {
             this.outputContainer = null;
-            this.pendingInput = null;
             this.init();
         }
 
@@ -22,44 +21,26 @@
                 
                 window.pyodide = pyodide;
                 
-                // Create a custom output capture system
+                // Override print and input
                 pyodide.runPython(`
 import sys
-import asyncio
-from io import StringIO
+import js
+from js import document
 
-class StreamingOutput:
-    def __init__(self):
-        self.buffer = []
-    
+class HTMLOutput:
     def write(self, text):
-        if text and text.strip():
-            self.buffer.append(str(text))
-            # Send each line immediately
-            for line in str(text).split('\\n'):
-                if line.strip() or text.strip() == '':
-                    from js import streamOutput
-                    streamOutput(line + '\\n')
-    
+        if text:
+            js.displayStyledOutput(str(text))
     def flush(self):
         pass
 
-# Replace stdout
-sys.stdout = StreamingOutput()
-sys.stderr = StreamingOutput()
+sys.stdout = HTMLOutput()
 
-# Store original input for later
-import builtins
-original_input = builtins.input
-
-# Override input to work with our system
+# Override input to use inline HTML
 def input(prompt=""):
     if prompt:
-        print(prompt, end='')
-    from js import getInlineInputSync
-    return getInlineInputSync(prompt)
-
-builtins.input = input
+        print(prompt)
+    return js.createInlineInput(str(prompt))
 `);
                 
                 this.hideStatus();
@@ -116,8 +97,8 @@ builtins.input = input
                     
                     this.clearOutput();
                     
-                    // Run Python code with streaming output
-                    await this.runPythonWithStreaming(code);
+                    // Run Python code line by line to handle inputs
+                    await this.runPythonWithInlineInputs(code);
                     scriptTag.remove();
 
                 } catch(e) {
@@ -126,77 +107,49 @@ builtins.input = input
             }
         }
 
-        async runPythonWithStreaming(code) {
-            try {
-                // Execute the code directly - the stdout capture will handle streaming
-                await window.pyodide.runPythonAsync(code);
-            } catch (error) {
-                this.addError(error.toString());
-            }
-        }
-
-        streamOutput(text) {
-            // This gets called from Python for each chunk of output
-            if (!this.outputContainer) return;
+        async runPythonWithInlineInputs(code) {
+            // Split code into lines
+            const lines = code.split('\n');
+            let result = '';
             
-            // Check if this is a prompt for input
-            if (this.pendingInput) {
-                // If waiting for input, just append to the prompt area
-                const lastChild = this.outputContainer.lastChild;
-                if (lastChild && lastChild.classList && lastChild.classList.contains('prompt-output')) {
-                    lastChild.textContent += text;
-                }
-                return;
-            }
-            
-            // Split into lines for individual display
-            const lines = text.split('\n');
-            for (let line of lines) {
-                if (line === '') continue;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
                 
-                const outputLine = document.createElement('div');
-                
-                // Color coding
-                let color = '#43e97b';
-                if (line.includes('Error') || line.includes('Traceback')) {
-                    color = '#fa709a';
-                } else if (line.includes('Warning')) {
-                    color = '#ffd93d';
+                // Check if line contains input()
+                if (line.includes('input(')) {
+                    // Extract prompt
+                    const promptMatch = line.match(/input\(["'](.+?)["']\)/);
+                    if (promptMatch) {
+                        const prompt = promptMatch[1];
+                        const value = await this.createInlineInput(prompt);
+                        // Replace the input() call with the value
+                        const newLine = line.replace(/input\(["'].+?["']\)/, `"${value}"`);
+                        result += newLine + '\n';
+                    }
                 } else {
-                    color = '#e0e0e0';
+                    result += line + '\n';
                 }
-                
-                outputLine.style.cssText = `
-                    color: ${color};
-                    margin: 2px 0;
-                    line-height: 1.5;
-                    font-family: 'Courier New', monospace;
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                `;
-                outputLine.textContent = line;
-                this.outputContainer.appendChild(outputLine);
             }
             
-            // Auto-scroll to bottom
-            this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
+            // Execute the modified code
+            await window.pyodide.runPythonAsync(result);
         }
 
-        async getInlineInput(prompt) {
+        createInlineInput(prompt) {
             return new Promise((resolve) => {
                 // Create input container
                 const container = document.createElement('div');
                 container.style.cssText = `
-                    background: rgba(102, 126, 234, 0.15);
+                    background: rgba(102, 126, 234, 0.1);
                     border-radius: 10px;
                     padding: 15px;
-                    margin: 10px 0;
-                    border-left: 3px solid #667eea;
+                    margin: 15px 0;
+                    border: 1px solid rgba(102, 126, 234, 0.3);
                 `;
                 
                 // Add prompt text
                 const promptText = document.createElement('div');
-                promptText.textContent = prompt || 'Input required:';
+                promptText.textContent = prompt;
                 promptText.style.cssText = `
                     color: #ffd93d;
                     font-weight: 500;
@@ -226,7 +179,7 @@ builtins.input = input
                 
                 // Add submit button
                 const submitBtn = document.createElement('button');
-                submitBtn.textContent = 'Submit →';
+                submitBtn.textContent = '✓ Submit';
                 submitBtn.style.cssText = `
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border: none;
@@ -235,39 +188,17 @@ builtins.input = input
                     color: white;
                     font-weight: 600;
                     cursor: pointer;
-                    transition: all 0.2s;
-                    font-size: 13px;
+                    transition: transform 0.2s;
                 `;
-                submitBtn.onmouseover = () => {
-                    submitBtn.style.transform = 'translateY(-2px)';
-                };
-                submitBtn.onmouseout = () => {
-                    submitBtn.style.transform = 'translateY(0)';
-                };
                 container.appendChild(submitBtn);
                 
                 // Add to output container
                 this.outputContainer.appendChild(container);
                 
-                // Focus on input
-                inputField.focus();
-                
                 // Handle submission
                 const submit = () => {
                     const value = inputField.value;
                     container.remove();
-                    
-                    // Show the input value as output
-                    const userInputLine = document.createElement('div');
-                    userInputLine.style.cssText = `
-                        color: #a78bfa;
-                        margin: 2px 0;
-                        font-family: 'Courier New', monospace;
-                        font-style: italic;
-                    `;
-                    userInputLine.textContent = `↳ ${value}`;
-                    this.outputContainer.appendChild(userInputLine);
-                    
                     resolve(value);
                 };
                 
@@ -276,39 +207,46 @@ builtins.input = input
                     if (e.key === 'Enter') submit();
                 };
                 
+                inputField.focus();
+                
                 // Scroll to input
                 container.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
-        }
-
-        getInlineInputSync(prompt) {
-            // Synchronous wrapper for async input (using a trick with async/await)
-            this.pendingInput = true;
-            
-            // Use a promise that we'll resolve synchronously
-            let value = null;
-            let isResolved = false;
-            
-            this.getInlineInput(prompt).then(result => {
-                value = result;
-                isResolved = true;
-                this.pendingInput = false;
-            });
-            
-            // Wait for resolution (this blocks but it's necessary for sync input)
-            const startTime = Date.now();
-            while (!isResolved && Date.now() - startTime < 300000) { // 5 min timeout
-                // This is a spin lock - not ideal but necessary for synchronous input
-                // In practice, this works because the Promise resolves quickly
-            }
-            
-            return value;
         }
 
         clearOutput() {
             if (this.outputContainer) {
                 this.outputContainer.innerHTML = '';
             }
+        }
+
+        addStyledOutput(text) {
+            if (!this.outputContainer) return;
+            
+            const line = document.createElement('div');
+            
+            // Color coding for different output types
+            let color = '#43e97b';
+            if (text.includes('Error') || text.includes('not found')) {
+                color = '#fa709a';
+            } else if (text.includes('successfully')) {
+                color = '#43e97b';
+            } else if (text.includes('+----')) {
+                color = '#667eea';
+            } else {
+                color = '#e0e0e0';
+            }
+            
+            line.style.cssText = `
+                color: ${color};
+                margin: 4px 0;
+                line-height: 1.5;
+                font-family: monospace;
+                white-space: pre-wrap;
+            `;
+            line.textContent = text;
+            this.outputContainer.appendChild(line);
+            line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         addError(text) {
@@ -321,7 +259,6 @@ builtins.input = input
                 margin: 10px 0;
                 border-radius: 8px;
                 font-family: monospace;
-                border-left: 3px solid #fa709a;
             `;
             errorDiv.textContent = `❌ ${text}`;
             this.outputContainer.appendChild(errorDiv);
@@ -343,7 +280,6 @@ builtins.input = input
                     font-family: monospace;
                     font-size: 12px;
                     z-index: 9999;
-                    transition: all 0.3s;
                 `;
                 document.body.appendChild(status);
             }
@@ -363,20 +299,16 @@ builtins.input = input
     }
 
     // Global functions for Python to call
-    window.streamOutput = function(text) {
+    window.displayStyledOutput = function(text) {
         if (window.pytmlInstance) {
-            window.pytmlInstance.streamOutput(text);
+            window.pytmlInstance.addStyledOutput(text);
         }
     };
 
-    window.getInlineInputSync = function(prompt) {
-        if (window.pytmlInstance) {
-            return window.pytmlInstance.getInlineInputSync(prompt);
-        }
-        return '';
+    window.createInlineInput = function(prompt) {
+        return window.pytmlInstance.createInlineInput(prompt);
     };
 
-    // Initialize when ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             window.pytmlInstance = new PYTML();
