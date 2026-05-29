@@ -1,12 +1,12 @@
 // Load Pyodide from YOUR CDN (no CORS issues!)
-importScripts('https://pytml.vercel.app/pyodide.js');
+importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
 
 let pyodide;
 
 async function initPyodide() {
     if (!pyodide) {
         pyodide = await loadPyodide({
-            indexURL: 'https://pytml.vercel.app/'
+            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
         });
         
         // Override Python's input() function
