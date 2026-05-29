@@ -16,7 +16,9 @@
             script.onload = async () => {
                 this.showStatus('Initializing Python...');
                 let pyodide = await loadPyodide({
-                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
+                    indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
+                    fullStdLib: false,        // Don't load unnecessary stdlib
+                    packages: []         
                 });
                 
                 window.pyodide = pyodide;
