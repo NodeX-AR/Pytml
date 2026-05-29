@@ -1,5 +1,5 @@
-// pytml.js - Run Python files in HTML as if they were native
-// Fixed: Proper DOM loading, error handling, and CSP compliance
+// pytml.js - Python in Browser with Inline Input
+// No popups - everything happens inline in the page
 
 (function(window) {
     'use strict';
@@ -9,62 +9,67 @@
             this.ready = false;
             this.pyodide = null;
             this.output = null;
+            this.currentInputResolver = null;
             this.init();
         }
 
         async init() {
-            // Wait for DOM to be ready
             if (document.readyState === 'loading') {
                 await new Promise(resolve => {
                     document.addEventListener('DOMContentLoaded', resolve);
                 });
             }
             
-            // Create output element
             this.createOutput();
-            
-            // Load Pyodide
             await this.loadPyodide();
-            
-            // Setup Python environment
             await this.setupPython();
-            
-            // Find and run Python files
             await this.runPythonFiles();
         }
 
         createOutput() {
-            // Create output container only if body exists
-            if (!document.body) {
-                console.error('Document body not ready');
-                return;
-            }
+            if (!document.body) return;
             
-            // Check if output already exists
             let output = document.getElementById('pytml-output');
             if (!output) {
                 output = document.createElement('div');
                 output.id = 'pytml-output';
                 output.style.cssText = `
-                    font-family: monospace;
-                    margin: 10px 0;
+                    font-family: 'Courier New', 'Fira Code', monospace;
+                    margin: 20px auto;
                     padding: 0;
-                    display: none;
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    max-width: 400px;
-                    max-height: 300px;
-                    overflow: auto;
-                    background: white;
-                    border: 1px solid #ccc;
-                    border-radius: 5px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    z-index: 10000;
+                    background: #1e1e1e;
+                    color: #d4d4d4;
+                    border-radius: 8px;
+                    max-width: 800px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                 `;
+                
+                // Add header
+                const header = document.createElement('div');
+                header.style.cssText = `
+                    padding: 10px 15px;
+                    background: #2d2d2d;
+                    border-bottom: 1px solid #3d3d3d;
+                    border-radius: 8px 8px 0 0;
+                    font-weight: bold;
+                    color: #4ec9b0;
+                `;
+                header.textContent = 'Python Output';
+                output.appendChild(header);
+                
+                // Add content area
+                const content = document.createElement('div');
+                content.id = 'pytml-content';
+                content.style.cssText = `
+                    padding: 15px;
+                    max-height: 500px;
+                    overflow-y: auto;
+                `;
+                output.appendChild(content);
+                
                 document.body.appendChild(output);
             }
-            this.output = output;
+            this.output = document.getElementById('pytml-content');
         }
 
         loadPyodide() {
@@ -93,6 +98,8 @@
             await this.pyodide.runPythonAsync(`
 import sys
 import js
+import asyncio
+from pyodide.ffi import create_proxy
 from js import document, window
 
 class OutputCapture:
@@ -109,7 +116,7 @@ class OutputCapture:
         if self.buffer:
             full_text = ''.join(self.buffer)
             if full_text.strip():
-                window.pytml.display(full_text)
+                window.pytml.display(full_text, 'output')
             self.buffer = []
 
 sys.stdout = OutputCapture()
@@ -118,7 +125,8 @@ sys.stderr = OutputCapture()
 async def python_input(prompt=""):
     if prompt:
         print(prompt, end='')
-    return await window.pytml.getInput(prompt)
+    # Call JavaScript function that returns a Promise
+    return await window.pytml.getInputInline(prompt)
 
 import builtins
 builtins.input = python_input
@@ -126,11 +134,10 @@ builtins.input = python_input
         }
 
         async runPythonFiles() {
-            // Find all Python files - handle both link and script tags
             const elements = document.querySelectorAll('link[type="text/python"], script[type="text/python"][src]');
             
             if (elements.length === 0) {
-                this.log('No Python files found');
+                this.display('No Python files found. Use: <link type="text/python" href="yourfile.py">', 'warning');
                 return;
             }
             
@@ -144,7 +151,7 @@ builtins.input = python_input
 
         async runPythonFile(filePath) {
             try {
-                this.log(`Running: ${filePath}`);
+                this.display(`> Running: ${filePath}`, 'info');
                 const response = await fetch(filePath);
                 
                 if (!response.ok) {
@@ -153,7 +160,7 @@ builtins.input = python_input
                 
                 const pythonCode = await response.text();
                 await this.pyodide.runPythonAsync(pythonCode);
-                this.log(`Completed: ${filePath}`);
+                this.display(`> Completed: ${filePath}`, 'success');
                 
             } catch (error) {
                 this.display(`Error: ${error.message}`, 'error');
@@ -161,146 +168,152 @@ builtins.input = python_input
             }
         }
 
-        async getInput(prompt) {
+        async getInputInline(prompt) {
             return new Promise((resolve) => {
-                // Ensure output container exists
-                if (!this.output || !document.body.contains(this.output)) {
-                    this.createOutput();
-                }
-                
-                // Create input container
-                const container = document.createElement('div');
-                container.style.cssText = `
-                    margin: 5px;
+                // Create inline input element
+                const inputContainer = document.createElement('div');
+                inputContainer.style.cssText = `
+                    margin: 10px 0;
                     padding: 10px;
-                    background: #f9f9f9;
-                    border-left: 3px solid #007bff;
-                    border-radius: 3px;
+                    background: #2d2d2d;
+                    border-left: 3px solid #4ec9b0;
+                    border-radius: 4px;
                 `;
                 
-                const promptEl = document.createElement('div');
-                promptEl.textContent = prompt;
-                promptEl.style.cssText = `
+                const promptText = document.createElement('div');
+                promptText.textContent = prompt;
+                promptText.style.cssText = `
                     margin-bottom: 8px;
+                    color: #4ec9b0;
                     font-weight: bold;
-                    color: #333;
                 `;
                 
                 const inputWrapper = document.createElement('div');
                 inputWrapper.style.cssText = `
                     display: flex;
-                    gap: 5px;
+                    gap: 10px;
+                    align-items: center;
                 `;
                 
-                const inputEl = document.createElement('input');
-                inputEl.type = 'text';
-                inputEl.style.cssText = `
+                const inputField = document.createElement('input');
+                inputField.type = 'text';
+                inputField.style.cssText = `
                     flex: 1;
-                    padding: 8px;
-                    border: 1px solid #ccc;
-                    border-radius: 3px;
-                    font-family: monospace;
+                    padding: 8px 12px;
+                    background: #1e1e1e;
+                    border: 1px solid #4ec9b0;
+                    color: #d4d4d4;
+                    border-radius: 4px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
                 `;
+                inputField.placeholder = 'Type your answer here...';
                 
-                const buttonEl = document.createElement('button');
-                buttonEl.textContent = 'Submit';
-                buttonEl.style.cssText = `
-                    padding: 8px 15px;
-                    background: #007bff;
-                    color: white;
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Submit';
+                submitButton.style.cssText = `
+                    padding: 8px 16px;
+                    background: #4ec9b0;
+                    color: #1e1e1e;
                     border: none;
-                    border-radius: 3px;
+                    border-radius: 4px;
                     cursor: pointer;
+                    font-weight: bold;
+                    transition: background 0.2s;
                 `;
-                buttonEl.onmouseover = () => buttonEl.style.background = '#0056b3';
-                buttonEl.onmouseout = () => buttonEl.style.background = '#007bff';
+                submitButton.onmouseover = () => submitButton.style.background = '#5fd9c0';
+                submitButton.onmouseout = () => submitButton.style.background = '#4ec9b0';
                 
-                inputWrapper.appendChild(inputEl);
-                inputWrapper.appendChild(buttonEl);
-                container.appendChild(promptEl);
-                container.appendChild(inputWrapper);
+                inputWrapper.appendChild(inputField);
+                inputWrapper.appendChild(submitButton);
+                inputContainer.appendChild(promptText);
+                inputContainer.appendChild(inputWrapper);
                 
-                // Show output and add container
-                this.output.style.display = 'block';
-                this.output.appendChild(container);
-                this.output.scrollTop = this.output.scrollHeight;
+                this.output.appendChild(inputContainer);
+                inputField.focus();
                 
                 const submit = () => {
-                    const value = inputEl.value;
-                    container.remove();
+                    const value = inputField.value;
+                    inputContainer.remove();
                     
-                    // Hide output if empty
-                    if (this.output.children.length === 0) {
-                        this.output.style.display = 'none';
-                    }
+                    // Display what the user typed
+                    const userLine = document.createElement('div');
+                    userLine.style.cssText = `
+                        padding: 5px 0;
+                        color: #ce9178;
+                        font-style: italic;
+                    `;
+                    userLine.textContent = `> ${prompt}${value}`;
+                    this.output.appendChild(userLine);
                     
                     resolve(value);
                 };
                 
-                buttonEl.onclick = submit;
-                inputEl.onkeypress = (e) => {
+                submitButton.onclick = submit;
+                inputField.onkeypress = (e) => {
                     if (e.key === 'Enter') submit();
                 };
                 
-                inputEl.focus();
+                // Auto-scroll to input
+                inputContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
 
         display(text, type = 'output') {
-            // Ensure output exists
-            if (!this.output || !document.body.contains(this.output)) {
-                this.createOutput();
-            }
-            
-            // Show output container
-            this.output.style.display = 'block';
+            if (!this.output) return;
             
             const line = document.createElement('div');
             line.textContent = text;
             
-            // Style based on type
-            let color = '#333';
-            let bgColor = 'transparent';
+            let color = '#d4d4d4';
+            let borderLeft = 'none';
             
-            if (type === 'error') {
-                color = '#dc3545';
-                bgColor = '#ffe6e6';
-            } else if (type === 'success') {
-                color = '#28a745';
-            } else if (type === 'warning') {
-                color = '#ffc107';
+            switch(type) {
+                case 'error':
+                    color = '#f48771';
+                    borderLeft = '3px solid #f48771';
+                    break;
+                case 'success':
+                    color = '#4ec9b0';
+                    borderLeft = '3px solid #4ec9b0';
+                    break;
+                case 'warning':
+                    color = '#ce9178';
+                    borderLeft = '3px solid #ce9178';
+                    break;
+                case 'info':
+                    color = '#569cd6';
+                    borderLeft = '3px solid #569cd6';
+                    break;
+                default:
+                    color = '#d4d4d4';
             }
             
             line.style.cssText = `
-                padding: 8px 12px;
-                margin: 0;
-                border-bottom: 1px solid #eee;
-                font-family: 'Courier New', monospace;
-                font-size: 13px;
+                padding: 4px 0;
+                margin: 2px 0;
                 color: ${color};
-                background: ${bgColor};
+                border-left: ${borderLeft};
+                padding-left: ${borderLeft !== 'none' ? '10px' : '0'};
                 white-space: pre-wrap;
                 word-wrap: break-word;
+                font-family: 'Courier New', monospace;
+                font-size: 13px;
             `;
             
             this.output.appendChild(line);
-            this.output.scrollTop = this.output.scrollHeight;
-            
-            // Auto-hide after 10 seconds if no activity (optional)
-            clearTimeout(this.hideTimeout);
-            this.hideTimeout = setTimeout(() => {
-                if (this.output.children.length === 0) {
-                    this.output.style.display = 'none';
-                }
-            }, 10000);
+            line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        log(message) {
-            console.log(`[PYTML] ${message}`);
+        clear() {
+            if (this.output) {
+                this.output.innerHTML = '';
+                this.display('Output cleared', 'info');
+            }
         }
     }
 
-    // Initialize when DOM is ready
+    // Initialize
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             window.pytml = new PYTML();
