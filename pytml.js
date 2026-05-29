@@ -2,6 +2,7 @@
     class PYTML {
         constructor() {
             this.outputContainer = null;
+            this.currentInputResolver = null;
             this.init();
         }
 
@@ -22,7 +23,7 @@
                 window.pyodide = pyodide;
                 
                 // Override print and input
-                pyodide.runPython(`
+                await pyodide.runPythonAsync(`
 import sys
 import js
 
@@ -35,11 +36,12 @@ class HTMLOutput:
 
 sys.stdout = HTMLOutput()
 
-# Override input to use JavaScript prompt
-def input(prompt=""):
+# Override input to use inline HTML with proper async handling
+async def input(prompt=""):
     if prompt:
         print(prompt)
-    return js.prompt(str(prompt))
+    result = await js.createInlineInput(str(prompt))
+    return result
 `);
                 
                 this.hideStatus();
@@ -106,6 +108,85 @@ def input(prompt=""):
             }
         }
 
+        async createInlineInput(prompt) {
+            return new Promise((resolve) => {
+                // Create input container
+                const container = document.createElement('div');
+                container.style.cssText = `
+                    background: rgba(102, 126, 234, 0.1);
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin: 15px 0;
+                    border: 1px solid rgba(102, 126, 234, 0.3);
+                `;
+                
+                // Add prompt text
+                const promptText = document.createElement('div');
+                promptText.textContent = prompt;
+                promptText.style.cssText = `
+                    color: #ffd93d;
+                    font-weight: 500;
+                    margin-bottom: 10px;
+                    font-family: system-ui, sans-serif;
+                `;
+                container.appendChild(promptText);
+                
+                // Add input field
+                const inputField = document.createElement('input');
+                inputField.type = 'text';
+                inputField.placeholder = 'Type your answer here...';
+                inputField.style.cssText = `
+                    width: 100%;
+                    padding: 10px 12px;
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(102, 126, 234, 0.5);
+                    border-radius: 8px;
+                    color: white;
+                    font-size: 14px;
+                    font-family: monospace;
+                    outline: none;
+                    box-sizing: border-box;
+                    margin-bottom: 10px;
+                `;
+                container.appendChild(inputField);
+                
+                // Add submit button
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = '✓ Submit';
+                submitBtn.style.cssText = `
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    padding: 8px 20px;
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: transform 0.2s;
+                `;
+                container.appendChild(submitBtn);
+                
+                // Add to output container
+                this.outputContainer.appendChild(container);
+                
+                // Handle submission
+                const submit = () => {
+                    const value = inputField.value;
+                    container.remove();
+                    resolve(value);
+                };
+                
+                submitBtn.onclick = submit;
+                inputField.onkeypress = (e) => {
+                    if (e.key === 'Enter') submit();
+                };
+                
+                inputField.focus();
+                
+                // Scroll to input
+                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+
         clearOutput() {
             if (this.outputContainer) {
                 this.outputContainer.innerHTML = '';
@@ -117,6 +198,7 @@ def input(prompt=""):
             
             const line = document.createElement('div');
             
+            // Color coding for different output types
             let color = '#43e97b';
             if (text.includes('Error') || text.includes('not found')) {
                 color = '#fa709a';
@@ -195,9 +277,9 @@ def input(prompt=""):
             window.pytmlInstance.addStyledOutput(text);
         }
     };
-    
-    window.prompt = function(text) {
-        return prompt(text);
+
+    window.createInlineInput = function(prompt) {
+        return window.pytmlInstance.createInlineInput(prompt);
     };
 
     if (document.readyState === 'loading') {
