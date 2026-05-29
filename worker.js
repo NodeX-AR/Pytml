@@ -1,4 +1,3 @@
-// Use Pyodide's official CDN (has all files)
 importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
 
 let pyodide;
@@ -9,7 +8,7 @@ async function initPyodide() {
             indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
         });
         
-        // Override Python's input() function
+        // Override Python's input() function to work with Web Worker
         pyodide.runPython(`
 import sys
 import asyncio
@@ -32,7 +31,6 @@ sys.stdin = _input_handler
 def input(prompt=""):
     if prompt:
         print(prompt, end="")
-    # FIXED: changed _handler to _input_handler
     return asyncio.get_event_loop().run_until_complete(_input_handler.async_input(prompt))
 `);
     }
