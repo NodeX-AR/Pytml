@@ -1,19 +1,19 @@
-// pytml.js - Advanced Python in Browser with Loop Control
+// pytml.js - Complete Version with Proper Loop Handling
 (function(window) {
     class PYTML {
         constructor() {
             this.outputContainer = null;
             this.pyodide = null;
             this.isRunning = true;
-            this.outputMode = 'repetitive'; // 'repetitive' or 'overlap'
-            this.outputCache = new Map(); // Track repeated lines
+            this.outputMode = 'repetitive';
+            this.outputCache = new Map();
+            this.loopCounters = new Map();
             this.init();
         }
 
         async init() {
             console.log('PYTML: Initializing...');
             
-            // Check for user configuration
             if (window.pytmlConfig) {
                 if (window.pytmlConfig.outputMode) {
                     this.outputMode = window.pytmlConfig.outputMode;
@@ -36,7 +36,6 @@
                 
                 window.pyodide = this.pyodide;
                 
-                // Setup Python with loop handling
                 await this.pyodide.runPythonAsync(`
 import sys
 import js
@@ -50,12 +49,10 @@ class HTMLOutput:
     def write(self, text):
         if text:
             self.buffer.append(str(text))
-            if '\\n' in text or len(self.buffer) > 0:
-                # Send immediately for real-time output
-                full_text = ''.join(self.buffer)
-                if full_text.strip():
-                    js.displayStyledOutput(full_text)
-                self.buffer = []
+            full_text = ''.join(self.buffer)
+            if full_text.strip():
+                js.displayStyledOutput(full_text)
+            self.buffer = []
     
     def flush(self):
         if self.buffer:
@@ -67,20 +64,27 @@ class HTMLOutput:
 sys.stdout = HTMLOutput()
 sys.stderr = HTMLOutput()
 
-# Allow Python to yield control in loops
 async def python_input(prompt=""):
     if prompt:
         print(prompt, end='')
-    # Small delay to allow UI updates
     await asyncio.sleep(0.01)
     return await js.createInlineInput(str(prompt))
 
 import builtins
 builtins.input = python_input
 
-# Add a way to check if execution should continue
-def should_continue():
-    return js.window.pytmlInstance.isRunning
+# Add loop protection
+import time
+
+def safe_print(*args, **kwargs):
+    """Print with loop detection"""
+    text = ' '.join(str(arg) for arg in args)
+    if js.window.pytmlInstance.detectLoop(text):
+        return
+    original_print(*args, **kwargs)
+
+original_print = print
+print = safe_print
 
 print("Python ready")
 `);
@@ -97,20 +101,53 @@ print("Python ready")
             document.head.appendChild(script);
         }
 
+        detectLoop(text) {
+            const now = Date.now();
+            if (!this.loopTimers) this.loopTimers = new Map();
+            
+            if (this.loopCounters.has(text)) {
+                let count = this.loopCounters.get(text) + 1;
+                let lastTime = this.loopTimers.get(text) || now;
+                
+                if (count > 100 && (now - lastTime) < 1000) {
+                    if (!this.warningShown) {
+                        this.addOutput(`[Loop detected: "${text}" repeated ${count} times. Use Stop button to halt.]`, 'warning');
+                        this.warningShown = true;
+                    }
+                    return true;
+                }
+                
+                this.loopCounters.set(text, count);
+                this.loopTimers.set(text, lastTime);
+                
+                setTimeout(() => {
+                    if (this.loopCounters.get(text) === count) {
+                        this.loopCounters.delete(text);
+                        this.loopTimers.delete(text);
+                        this.warningShown = false;
+                    }
+                }, 1000);
+            } else {
+                this.loopCounters.set(text, 1);
+                this.loopTimers.set(text, now);
+            }
+            
+            return false;
+        }
+
         createOutputContainer() {
             if (!document.getElementById('pytml-output')) {
                 const container = document.createElement('div');
                 container.id = 'pytml-output';
                 container.className = 'pytml-output';
                 
-                // Add control bar
                 const controls = document.createElement('div');
                 controls.className = 'pytml-controls';
                 controls.innerHTML = `
-                    <button class="pytml-stop-btn" title="Stop execution">Stop</button>
-                    <button class="pytml-clear-btn" title="Clear output">Clear</button>
+                    <button class="pytml-stop-btn">Stop</button>
+                    <button class="pytml-clear-btn">Clear</button>
                     <label class="pytml-mode-label">
-                        <input type="checkbox" class="pytml-mode-checkbox" ${this.outputMode === 'overlap' ? 'checked' : ''}>
+                        <input type="checkbox" class="pytml-mode-checkbox">
                         Overlap Mode (replace repeated lines)
                     </label>
                 `;
@@ -130,7 +167,6 @@ print("Python ready")
                 
                 container.appendChild(controls);
                 
-                // Add output area
                 const outputArea = document.createElement('div');
                 outputArea.className = 'pytml-output-area';
                 container.appendChild(outputArea);
@@ -175,7 +211,22 @@ print("Python ready")
                     flex-wrap: wrap;
                 }
                 
-                .pytml-stop-btn, .pytml-clear-btn {
+                .pytml-stop-btn {
+                    background: #dc2626;
+                    color: white;
+                    border: none;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-family: monospace;
+                    font-size: 12px;
+                }
+                
+                .pytml-stop-btn:hover {
+                    background: #b91c1c;
+                }
+                
+                .pytml-clear-btn {
                     background: #2d2d44;
                     border: none;
                     color: #a1a1aa;
@@ -186,18 +237,9 @@ print("Python ready")
                     font-size: 12px;
                 }
                 
-                .pytml-stop-btn:hover, .pytml-clear-btn:hover {
+                .pytml-clear-btn:hover {
                     background: #3d3d54;
                     color: white;
-                }
-                
-                .pytml-stop-btn {
-                    background: #dc2626;
-                    color: white;
-                }
-                
-                .pytml-stop-btn:hover {
-                    background: #b91c1c;
                 }
                 
                 .pytml-mode-label {
@@ -223,13 +265,12 @@ print("Python ready")
                     color: #e4e4e7;
                 }
                 
-                .pytml-output-line.overlap {
-                    animation: highlight 0.3s ease;
-                }
-                
-                @keyframes highlight {
-                    0% { background: rgba(102, 126, 234, 0.3); }
-                    100% { background: transparent; }
+                .pytml-warning-line {
+                    color: #fbbf24;
+                    background: rgba(251, 191, 36, 0.1);
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    margin: 4px 0;
                 }
                 
                 .pytml-error-line {
@@ -298,11 +339,6 @@ print("Python ready")
                     z-index: 9999;
                 }
                 
-                .pytml-status-error {
-                    background: #dc2626;
-                }
-                
-                /* Scrollbar */
                 .pytml-output-area::-webkit-scrollbar {
                     width: 8px;
                 }
@@ -332,7 +368,11 @@ print("Python ready")
                     
                     this.clearOutput();
                     this.isRunning = true;
-                    await this.runPythonWithInlineInputs(code);
+                    this.loopCounters.clear();
+                    this.warningShown = false;
+                    
+                    // Execute with timeout protection
+                    await this.executeWithTimeout(code);
                     scriptTag.remove();
 
                 } catch(e) {
@@ -341,13 +381,32 @@ print("Python ready")
             }
         }
 
+        async executeWithTimeout(code, timeout = 30000) {
+            return new Promise(async (resolve, reject) => {
+                const timeoutId = setTimeout(() => {
+                    this.isRunning = false;
+                    this.addError('Execution timeout (30s). Use Stop button to halt infinite loops.', 'warning');
+                    reject(new Error('Execution timeout'));
+                }, timeout);
+                
+                try {
+                    await this.runPythonWithInlineInputs(code);
+                    clearTimeout(timeoutId);
+                    resolve();
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    reject(error);
+                }
+            });
+        }
+
         async runPythonWithInlineInputs(code) {
             const lines = code.split('\n');
             let result = '';
             
             for (let i = 0; i < lines.length; i++) {
                 if (!this.isRunning) {
-                    this.addOutput('Execution stopped by user', 'info');
+                    this.addOutput('Execution stopped by user', 'warning');
                     break;
                 }
                 
@@ -361,31 +420,61 @@ print("Python ready")
                         const newLine = line.replace(/input\(["'].+?["']\)/, `"${value}"`);
                         result += newLine + '\n';
                     }
+                } else if (line.trim().startsWith('while True:')) {
+                    this.addOutput('[Warning: Infinite loop detected. Click Stop to halt execution.]', 'warning');
+                    await this.runWithLoopProtection(line, lines.slice(i + 1));
+                    break;
                 } else {
                     result += line + '\n';
                 }
                 
-                // Allow UI to update between lines
-                await this.sleep(10);
+                await this.sleep(5);
             }
             
-            if (this.isRunning) {
+            if (this.isRunning && result.trim()) {
                 await window.pyodide.runPythonAsync(result);
             }
         }
 
-        async runPythonCode(code) {
-            try {
-                await this.pyodide.runPythonAsync(code);
-            } catch (error) {
-                this.addError(error.message);
+        async runWithLoopProtection(loopLine, loopBody) {
+            let iteration = 0;
+            const maxIterations = 1000;
+            
+            this.addOutput('Running loop with protection (max 1000 iterations)...', 'info');
+            
+            while (this.isRunning && iteration < maxIterations) {
+                for (let line of loopBody) {
+                    if (!this.isRunning) break;
+                    
+                    if (line.includes('print(')) {
+                        const printMatch = line.match(/print\(["'](.+?)["']\)/);
+                        if (printMatch) {
+                            const text = printMatch[1];
+                            if (this.outputMode === 'overlap') {
+                                this.addOverlapOutput(text, 'output');
+                            } else {
+                                this.addOutput(text, 'output');
+                            }
+                        }
+                    }
+                    await this.sleep(10);
+                }
+                iteration++;
+                
+                if (iteration % 100 === 0) {
+                    this.addOutput(`Loop iteration: ${iteration}... (Click Stop to halt)`, 'info');
+                }
+            }
+            
+            if (iteration >= maxIterations) {
+                this.addOutput(`Loop stopped after ${maxIterations} iterations. Use Stop button for longer runs.`, 'warning');
             }
         }
 
         addOutput(text, type = 'output') {
             if (!this.outputContainer) return;
             
-            if (this.outputMode === 'overlap') {
+            if (this.outputMode === 'overlap' && type === 'output') {
                 this.addOverlapOutput(text, type);
             } else {
                 this.addNewOutput(text, type);
@@ -394,20 +483,22 @@ print("Python ready")
 
         addNewOutput(text, type = 'output') {
             const line = document.createElement('div');
-            line.className = type === 'error' ? 'pytml-error-line' : 'pytml-output-line';
+            if (type === 'error') line.className = 'pytml-error-line';
+            else if (type === 'warning') line.className = 'pytml-warning-line';
+            else line.className = 'pytml-output-line';
             line.textContent = text;
             this.outputContainer.appendChild(line);
             line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         addOverlapOutput(text, type = 'output') {
-            // Check if this exact text was the last line
             const lastLine = this.outputContainer.lastChild;
             
             if (lastLine && lastLine.classList.contains('pytml-output-line') && 
                 !lastLine.classList.contains('pytml-error-line') &&
-                lastLine.textContent === text) {
-                // Update the count on the existing line
+                !lastLine.classList.contains('pytml-warning-line') &&
+                lastLine.textContent.split(' (x')[0] === text) {
+                
                 let count = parseInt(lastLine.getAttribute('data-count') || '1');
                 count++;
                 lastLine.setAttribute('data-count', count);
@@ -415,7 +506,6 @@ print("Python ready")
                 lastLine.classList.add('overlap');
                 setTimeout(() => lastLine.classList.remove('overlap'), 300);
             } else {
-                // Add new line
                 const line = document.createElement('div');
                 line.className = 'pytml-output-line';
                 line.textContent = text;
@@ -459,7 +549,6 @@ print("Python ready")
                 const submit = () => {
                     const value = inputField.value;
                     container.remove();
-                    this.addOutput(`${prompt}${value}`, 'output');
                     resolve(value);
                 };
                 
@@ -477,12 +566,13 @@ print("Python ready")
             if (this.outputContainer) {
                 this.outputContainer.innerHTML = '';
                 this.outputCache.clear();
+                this.loopCounters.clear();
             }
         }
 
         stopExecution() {
             this.isRunning = false;
-            this.addOutput('Execution stopped', 'info');
+            this.addOutput('Execution stopped by user', 'warning');
         }
 
         sleep(ms) {
@@ -498,7 +588,7 @@ print("Python ready")
                 document.body.appendChild(status);
             }
             status.textContent = message;
-            if (isError) status.classList.add('pytml-status-error');
+            if (isError) status.style.background = '#dc2626';
             
             setTimeout(() => {
                 if (status) {
