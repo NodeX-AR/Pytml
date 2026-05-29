@@ -1,4 +1,4 @@
-// pytml.js - Fixed version with proper async input handling
+// pytml.js - Complete Fixed Version
 (function(window) {
     'use strict';
 
@@ -90,7 +90,8 @@
         }
 
         async setupPython() {
-            await this.pyodide.runPythonAsync(`
+            // Fixed: Proper multi-line string with correct syntax
+            const pythonCode = `
 import sys
 import js
 import asyncio
@@ -125,11 +126,17 @@ async def python_input(prompt=""):
 import builtins
 builtins.input = python_input
 print("Python ready!")
-`);
+`;
+            await this.pyodide.runPythonAsync(pythonCode);
         }
 
         async runPythonFiles() {
             const elements = document.querySelectorAll('link[type="text/python"], script[type="text/python"][src]');
+            
+            if (elements.length === 0) {
+                this.display('No Python files found. Use: <link type="text/python" href="yourfile.py">', 'warning');
+                return;
+            }
             
             for (let el of elements) {
                 let pythonFile = el.getAttribute('href') || el.getAttribute('src');
@@ -141,20 +148,28 @@ print("Python ready!")
 
         async runPythonFile(filePath) {
             try {
-                this.display(f'Running: {filePath}', 'info');
+                this.display('Running: ' + filePath, 'info');
                 const response = await fetch(filePath);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+                }
+                
                 const pythonCode = await response.text();
                 await this.pyodide.runPythonAsync(pythonCode);
-                this.display(f'Completed: {filePath}', 'success');
+                this.display('Completed: ' + filePath, 'success');
+                
             } catch (error) {
-                this.display(`Error: ${error.message}`, 'error');
+                this.display('Error: ' + error.message, 'error');
+                console.error('Failed to run ' + filePath + ':', error);
             }
         }
 
         getInputInline(prompt) {
             return new Promise((resolve) => {
-                const container = document.createElement('div');
-                container.style.cssText = `
+                // Create inline input element
+                const inputContainer = document.createElement('div');
+                inputContainer.style.cssText = `
                     margin: 10px 0;
                     padding: 10px;
                     background: #2d2d2d;
@@ -170,23 +185,30 @@ print("Python ready!")
                     font-weight: bold;
                 `;
                 
+                const inputWrapper = document.createElement('div');
+                inputWrapper.style.cssText = `
+                    display: flex;
+                    gap: 10px;
+                    align-items: center;
+                `;
+                
                 const inputField = document.createElement('input');
                 inputField.type = 'text';
                 inputField.style.cssText = `
-                    width: calc(100% - 80px);
+                    flex: 1;
                     padding: 8px 12px;
                     background: #1e1e1e;
                     border: 1px solid #4ec9b0;
                     color: #d4d4d4;
                     border-radius: 4px;
-                    font-family: monospace;
-                    margin-right: 10px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 14px;
                 `;
-                inputField.placeholder = 'Type here...';
+                inputField.placeholder = 'Type your answer here...';
                 
-                const submitBtn = document.createElement('button');
-                submitBtn.textContent = 'Submit';
-                submitBtn.style.cssText = `
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Submit';
+                submitButton.style.cssText = `
                     padding: 8px 16px;
                     background: #4ec9b0;
                     color: #1e1e1e;
@@ -194,50 +216,59 @@ print("Python ready!")
                     border-radius: 4px;
                     cursor: pointer;
                     font-weight: bold;
+                    transition: background 0.2s;
                 `;
+                submitButton.onmouseover = function() { 
+                    submitButton.style.background = '#5fd9c0'; 
+                };
+                submitButton.onmouseout = function() { 
+                    submitButton.style.background = '#4ec9b0'; 
+                };
                 
-                const wrapper = document.createElement('div');
-                wrapper.appendChild(inputField);
-                wrapper.appendChild(submitBtn);
-                container.appendChild(promptText);
-                container.appendChild(wrapper);
+                inputWrapper.appendChild(inputField);
+                inputWrapper.appendChild(submitButton);
+                inputContainer.appendChild(promptText);
+                inputContainer.appendChild(inputWrapper);
                 
-                this.output.appendChild(container);
+                this.output.appendChild(inputContainer);
                 inputField.focus();
                 
-                const submit = () => {
-                    const value = inputField.value;
-                    container.remove();
+                var self = this;
+                var submit = function() {
+                    var value = inputField.value;
+                    inputContainer.remove();
                     
-                    const userLine = document.createElement('div');
+                    // Display what the user typed
+                    var userLine = document.createElement('div');
                     userLine.style.cssText = `
                         padding: 5px 0;
                         color: #ce9178;
                         font-style: italic;
                     `;
-                    userLine.textContent = `> ${prompt}${value}`;
-                    this.output.appendChild(userLine);
+                    userLine.textContent = '> ' + prompt + value;
+                    self.output.appendChild(userLine);
                     
                     resolve(value);
                 };
                 
-                submitBtn.onclick = submit;
-                inputField.onkeypress = (e) => {
+                submitButton.onclick = submit;
+                inputField.onkeypress = function(e) {
                     if (e.key === 'Enter') submit();
                 };
                 
-                container.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Auto-scroll to input
+                inputContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
 
-        display(text, type = 'output') {
+        display(text, type) {
             if (!this.output) return;
             
-            const line = document.createElement('div');
+            var line = document.createElement('div');
             line.textContent = text;
             
-            let color = '#d4d4d4';
-            let borderLeft = 'none';
+            var color = '#d4d4d4';
+            var borderLeft = 'none';
             
             if (type === 'error') {
                 color = '#f48771';
@@ -245,6 +276,9 @@ print("Python ready!")
             } else if (type === 'success') {
                 color = '#4ec9b0';
                 borderLeft = '3px solid #4ec9b0';
+            } else if (type === 'warning') {
+                color = '#ce9178';
+                borderLeft = '3px solid #ce9178';
             } else if (type === 'info') {
                 color = '#569cd6';
                 borderLeft = '3px solid #569cd6';
@@ -257,17 +291,26 @@ print("Python ready!")
                 border-left: ${borderLeft};
                 padding-left: ${borderLeft !== 'none' ? '10px' : '0'};
                 white-space: pre-wrap;
-                font-family: monospace;
+                word-wrap: break-word;
+                font-family: 'Courier New', monospace;
                 font-size: 13px;
             `;
             
             this.output.appendChild(line);
             line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+
+        clear() {
+            if (this.output) {
+                this.output.innerHTML = '';
+                this.display('Output cleared', 'info');
+            }
+        }
     }
 
+    // Initialize
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', function() {
             window.pytml = new PYTML();
         });
     } else {
