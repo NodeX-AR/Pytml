@@ -16,17 +16,17 @@
             script.onload = async () => {
                 this.showStatus('Initializing Python...');
                 
-                // OPTIMIZED: Load with fullStdLib: false for faster loading
                 let pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
-                    fullStdLib: false,  // Don't load unnecessary stdlib (faster!)
-                    packages: []        // Only load packages you need
+                    fullStdLib: false,
+                    packages: []
                 });
                 
                 window.pyodide = pyodide;
                 
                 pyodide.runPython(`
 import sys
+import js
 from js import window
 
 class HTMLOutput:
@@ -37,10 +37,15 @@ class HTMLOutput:
         pass
 
 sys.stdout = HTMLOutput()
+
+def input(prompt=""):
+    if prompt:
+        print(prompt)
+    return js.createInlineInput(str(prompt))
 `);
                 
                 this.hideStatus();
-                console.log('PYTML: Ready!');
+                console.log('PYTML: Ready');
                 await this.loadExternalPythonFiles();
             };
             
@@ -124,24 +129,24 @@ sys.stdout = HTMLOutput()
                 inputField.className = 'pytml-input';
                 inputField.placeholder = 'Type your answer here...';
                 
-                const submitBtn = document.createElement('button');
-                submitBtn.textContent = 'Submit';
-                submitBtn.className = 'pytml-submit';
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Submit';
+                submitButton.className = 'pytml-submit';
                 
                 container.appendChild(promptText);
                 container.appendChild(inputField);
-                container.appendChild(submitBtn);
+                container.appendChild(submitButton);
                 
                 this.outputContainer.appendChild(container);
                 
                 const submit = () => {
                     const value = inputField.value;
                     container.remove();
-                    this.addOutputLine(`> ${prompt} ${value}`, 'pytml-user-input');
+                    this.addOutputLine(prompt + ' ' + value, 'pytml-user-input');
                     resolve(value);
                 };
                 
-                submitBtn.onclick = submit;
+                submitButton.onclick = submit;
                 inputField.onkeypress = (e) => {
                     if (e.key === 'Enter') submit();
                 };
@@ -157,7 +162,7 @@ sys.stdout = HTMLOutput()
             }
         }
 
-        addOutputLine(text, className = 'pytml-line') {
+        addOutputLine(text, className) {
             if (!this.outputContainer) return;
             
             const line = document.createElement('div');
@@ -169,20 +174,24 @@ sys.stdout = HTMLOutput()
 
         addStyledOutput(text) {
             let className = 'pytml-line';
+            
             if (text.includes('Error') || text.includes('not found')) {
                 className = 'pytml-error';
-            } else if (text.includes('Hello')) {
+            } else if (text.includes('successfully')) {
                 className = 'pytml-success';
             } else if (text.includes('+----')) {
                 className = 'pytml-border';
+            } else if (text.includes('----')) {
+                className = 'pytml-border';
             }
+            
             this.addOutputLine(text, className);
         }
 
         addError(text) {
             if (!this.outputContainer) return;
             const errorDiv = document.createElement('div');
-            errorDiv.textContent = `❌ ${text}`;
+            errorDiv.textContent = text;
             errorDiv.className = 'pytml-error';
             this.outputContainer.appendChild(errorDiv);
         }
@@ -202,7 +211,9 @@ sys.stdout = HTMLOutput()
                 status.classList.remove('pytml-status-error');
             }
             setTimeout(() => {
-                if (status) status.style.opacity = '0';
+                if (status) {
+                    status.classList.add('pytml-status-hidden');
+                }
             }, 3000);
         }
 
@@ -216,6 +227,10 @@ sys.stdout = HTMLOutput()
         if (window.pytmlInstance) {
             window.pytmlInstance.addStyledOutput(text);
         }
+    };
+
+    window.createInlineInput = function(prompt) {
+        return window.pytmlInstance.createInlineInput(prompt);
     };
 
     if (document.readyState === 'loading') {
