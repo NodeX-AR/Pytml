@@ -26,7 +26,6 @@
 import sys
 import js
 from js import document
-import asyncio
 
 class HTMLOutput:
     def write(self, text):
@@ -37,34 +36,11 @@ class HTMLOutput:
 
 sys.stdout = HTMLOutput()
 
-# Store the original input
-_original_input = __builtins__.input
-
-# Create async input function
-async def async_input(prompt=""):
+# Override input to use inline HTML
+def input(prompt=""):
     if prompt:
         print(prompt)
-    result = await js.createInlineInput(str(prompt))
-    return result
-
-# Create a sync wrapper that runs the async function
-def input(prompt=""):
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-    
-    if loop and loop.is_running():
-        # Create a new task and wait for it
-        import concurrent.futures
-        future = asyncio.run_coroutine_threadsafe(async_input(prompt), loop)
-        return future.result()
-    else:
-        # Run in a new event loop
-        return asyncio.run(async_input(prompt))
-
-# Replace the built-in input
-__builtins__.input = input
+    return js.createInlineInput(str(prompt))
 `);
                 
                 this.hideStatus();
@@ -121,8 +97,8 @@ __builtins__.input = input
                     
                     this.clearOutput();
                     
-                    // Run Python code
-                    await this.runPythonWithInlineInputs(code);
+                    // Run Python code with async support
+                    await window.pyodide.runPythonAsync(code);
                     scriptTag.remove();
 
                 } catch(e) {
@@ -131,25 +107,7 @@ __builtins__.input = input
             }
         }
 
-        async runPythonWithInlineInputs(code) {
-            try {
-                // Execute the code directly with async support
-                await window.pyodide.runPythonAsync(`
-import asyncio
-
-async def execute_user_code():
-    exec(${JSON.stringify(code)})
-
-# Run the user code
-asyncio.get_event_loop().run_until_complete(execute_user_code())
-`);
-            } catch (error) {
-                this.addError(`Python execution error: ${error}`);
-                console.error(error);
-            }
-        }
-
-        async createInlineInput(prompt) {
+        createInlineInput(prompt) {
             return new Promise((resolve) => {
                 // Create input container
                 const container = document.createElement('div');
