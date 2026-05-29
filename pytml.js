@@ -3,24 +3,16 @@
         constructor() {
             this.worker = null;
             this.callbacks = new Map();
-            // Wait for DOM before initializing
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => this.init());
-            } else {
-                this.init();
-            }
+            this.pendingInputs = new Map();
+            this.init();
         }
 
         async init() {
             console.log('PYTML: Initializing...');
-            
-            // Only show status if body exists
-            if (document.body) {
-                this.showStatus('Loading Python (first time: 10-15s)...');
-            }
+            this.showStatus('Loading Python (first time: 10-15s)...');
 
             try {
-                const workerUrl = 'https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@latest/worker.js';
+                const workerUrl = 'https://your-cdn.com/worker.js'; // Update this
                 const response = await fetch(workerUrl);
                 let workerCode = await response.text();
 
@@ -29,7 +21,14 @@
                 this.worker = new Worker(blobUrl);
 
                 this.worker.onmessage = (event) => {
-                    const { id, success, output, error } = event.data;
+                    const { id, success, output, error, inputRequest } = event.data;
+                    
+                    // Handle input() requests from Python
+                    if (inputRequest) {
+                        this.handleInputRequest(id, inputRequest);
+                        return;
+                    }
+                    
                     if (this.callbacks.has(id)) {
                         const callback = this.callbacks.get(id);
                         if (success) {
@@ -43,49 +42,148 @@
 
                 this.worker.onerror = (error) => {
                     console.error('Worker error:', error);
-                    if (document.body) {
-                        this.showStatus('Worker error: ' + error.message, true);
-                    }
+                    this.showStatus('Worker error: ' + error.message, true);
                 };
 
                 await this.waitForWorker();
-                
-                if (document.body) {
-                    this.hideStatus();
-                }
+                this.hideStatus();
                 console.log('PYTML: Ready!');
 
-                await this.processPage();
                 await this.loadExternalPythonFiles();
 
             } catch (error) {
                 console.error('PYTML Error:', error);
-                if (document.body) {
-                    this.showStatus('Failed to load: ' + error.message, true);
-                }
+                this.showStatus('Failed to load: ' + error.message, true);
             }
+        }
+
+        handleInputRequest(id, prompt) {
+            // Create a modal dialog for input
+            const modal = this.createInputModal(prompt, (value) => {
+                this.worker.postMessage({
+                    type: 'input_response',
+                    id: id,
+                    value: value
+                });
+            });
+            document.body.appendChild(modal);
+        }
+
+        createInputModal(prompt, callback) {
+            const modal = document.createElement('div');
+            modal.className = 'pytml-modal';
+            modal.innerHTML = `
+                <div class="pytml-modal-content">
+                    <p>${this.escapeHtml(prompt)}</p>
+                    <input type="text" id="pytml-input" placeholder="Enter value...">
+                    <button id="pytml-submit">Submit</button>
+                </div>
+            `;
+            
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10001;
+            `;
+            
+            const modalContent = modal.querySelector('.pytml-modal-content');
+            modalContent.style.cssText = `
+                background: white;
+                padding: 20px;
+                border-radius: 8px;
+                min-width: 300px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            `;
+            
+            const input = modal.querySelector('#pytml-input');
+            const submit = modal.querySelector('#pytml-submit');
+            
+            submit.onclick = () => {
+                callback(input.value);
+                modal.remove();
+            };
+            
+            input.onkeypress = (e) => {
+                if (e.key === 'Enter') {
+                    callback(input.value);
+                    modal.remove();
+                }
+            };
+            
+            return modal;
         }
 
         async loadExternalPythonFiles() {
             const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
-            
+
             for (let scriptTag of pyScripts) {
                 const pyFile = scriptTag.getAttribute('src');
                 console.log(`Loading Python file: ${pyFile}`);
-                
+
                 try {
+                    // Fetch the Python file
                     const response = await fetch(pyFile);
                     const code = await response.text();
+
+                    // Create container for this script
+                    const container = document.createElement('div');
+                    container.className = 'pytml-container';
+                    container.style.cssText = `
+                        margin: 20px 0;
+                        border: 1px solid #ddd;
+                        border-radius: 5px;
+                        overflow: hidden;
+                    `;
+
+                    // Create output area
+                    const outputArea = document.createElement('div');
+                    outputArea.className = 'pytml-output';
+                    outputArea.style.cssText = `
+                        background: #1e1e1e;
+                        color: #d4d4d4;
+                        padding: 15px;
+                        font-family: 'Courier New', monospace;
+                        font-size: 14px;
+                        white-space: pre-wrap;
+                        word-wrap: break-word;
+                        max-height: 400px;
+                        overflow-y: auto;
+                    `;
+                    outputArea.textContent = 'Running...';
+
+                    // Create input area for interactive mode
+                    const inputArea = document.createElement('div');
+                    inputArea.className = 'pytml-input-area';
+                    inputArea.style.cssText = `
+                        background: #2d2d2d;
+                        padding: 10px;
+                        display: none;
+                        gap: 10px;
+                    `;
+                    inputArea.innerHTML = `
+                        <input type="text" placeholder="Enter value..." style="flex: 1; padding: 8px;">
+                        <button style="padding: 8px 15px;">Send</button>
+                    `;
+
+                    container.appendChild(outputArea);
+                    container.appendChild(inputArea);
+                    scriptTag.insertAdjacentElement('afterend', container);
+
+                    // Run the Python code
+                    const result = await this.runPythonInteractive(code, outputArea, inputArea);
                     
-                    // Run Python code
-                    const result = await this.runPython(code, {});
-                    
-                    // Display output after the script tag
-                    const outputDiv = document.createElement('div');
-                    outputDiv.style.cssText = 'background:#f4f4f4;padding:15px;margin:10px 0;border-radius:5px;font-family:monospace;white-space:pre-wrap';
-                    outputDiv.textContent = result;
-                    scriptTag.insertAdjacentElement('afterend', outputDiv);
-                    
+                    outputArea.textContent = result || 'Execution completed.';
+
+                    // Optionally remove the script tag
+                    scriptTag.remove();
+
                 } catch(e) {
                     console.error(`Error loading ${pyFile}:`, e);
                     const errorDiv = document.createElement('div');
@@ -96,14 +194,37 @@
             }
         }
 
+        async runPythonInteractive(code, outputElement, inputElement) {
+            return new Promise((resolve, reject) => {
+                const id = Date.now() + '-' + Math.random();
+                this.callbacks.set(id, { resolve, reject });
+                
+                // Store elements for this execution
+                this.pendingInputs.set(id, { outputElement, inputElement });
+                
+                this.worker.postMessage({
+                    type: 'run_interactive',
+                    id: id,
+                    code: code
+                });
+            });
+        }
+
         cleanPythonCode(code) {
             let cleaned = code.replace(/<!--[\s\S]*?-->/g, '');
-            cleaned = cleaned.replace(/&lt;/g, '<');
-            cleaned = cleaned.replace(/&gt;/g, '>');
-            cleaned = cleaned.replace(/&amp;/g, '&');
-            cleaned = cleaned.replace(/&quot;/g, '"');
+            cleaned = cleaned.replace(/</g, '<');
+            cleaned = cleaned.replace(/>/g, '>');
+            cleaned = cleaned.replace(/&/g, '&');
+            cleaned = cleaned.replace(/"/g, '"');
             cleaned = cleaned.replace(/\r\n/g, '\n');
+            cleaned = cleaned.replace(/\n\s*\n/g, '\n');
             return cleaned;
+        }
+
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         waitForWorker() {
@@ -121,92 +242,7 @@
             });
         }
 
-        async runPython(code, inputs = {}) {
-            const cleanedCode = this.cleanPythonCode(code);
-
-            return new Promise((resolve, reject) => {
-                const id = Date.now() + '-' + Math.random();
-                this.callbacks.set(id, { resolve, reject });
-
-                this.worker.postMessage({
-                    type: 'run',
-                    id: id,
-                    code: cleanedCode,
-                    inputs: inputs
-                });
-
-                setTimeout(() => {
-                    if (this.callbacks.has(id)) {
-                        this.callbacks.delete(id);
-                        reject(new Error('Execution timeout (10s)'));
-                    }
-                }, 10000);
-            });
-        }
-
-        collectInputs(btn) {
-            const inputs = {};
-            const form = btn.closest('[data-python-form]');
-            if (form) {
-                form.querySelectorAll('input, select, textarea').forEach(el => {
-                    if (el.name) {
-                        let value = el.value;
-                        if (el.type === 'number') {
-                            value = parseFloat(value);
-                        } else if (el.type === 'checkbox') {
-                            value = el.checked;
-                        }
-                        inputs[el.name] = value;
-                    }
-                });
-            }
-            return inputs;
-        }
-
-        async processPage() {
-            const textElements = document.querySelectorAll('[data-python-text]');
-            for (let el of textElements) {
-                const code = el.getAttribute('data-python-text');
-                try {
-                    const result = await this.runPython(`print(${code})`);
-                    if (el) el.textContent = result.trim();
-                } catch(e) {
-                    if (el) el.textContent = 'Error: ' + e.message;
-                }
-            }
-
-            const buttons = document.querySelectorAll('[data-python]');
-            for (let btn of buttons) {
-                const code = btn.getAttribute('data-python');
-                const target = btn.getAttribute('data-target');
-
-                btn.addEventListener('click', async () => {
-                    const inputs = this.collectInputs(btn);
-                    const originalText = btn.textContent;
-                    btn.disabled = true;
-                    btn.textContent = 'Processing...';
-
-                    try {
-                        const result = await this.runPython(code, inputs);
-                        if (target) {
-                            const out = document.querySelector(target);
-                            if (out) out.textContent = result;
-                        }
-                    } catch(e) {
-                        if (target) {
-                            const out = document.querySelector(target);
-                            if (out) out.textContent = 'Error: ' + e.message;
-                        }
-                    } finally {
-                        btn.disabled = false;
-                        btn.textContent = originalText;
-                    }
-                });
-            }
-        }
-
         showStatus(message, isError = false) {
-            if (!document.body) return;
             let status = document.getElementById('pytml-status');
             if (!status) {
                 status = document.createElement('div');
@@ -235,11 +271,16 @@
         }
 
         hideStatus() {
-            if (!document.body) return;
             const status = document.getElementById('pytml-status');
             if (status) status.remove();
         }
     }
 
-    window.pytml = new PYTML();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            window.pytml = new PYTML();
+        });
+    } else {
+        window.pytml = new PYTML();
+    }
 })(window);
