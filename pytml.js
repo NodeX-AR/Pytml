@@ -2,6 +2,9 @@
     class PYTML {
         constructor() {
             this.outputContainer = null;
+            this.outputBuffer = [];
+            this.updateMode = 'append'; // 'append' or 'replace'
+            this.updateInterval = null;
             this.init();
         }
 
@@ -9,6 +12,12 @@
             console.log('PYTML: Initializing...');
             this.createOutputContainer();
             this.showStatus('Loading Python...');
+            
+            // Check for user-configured update mode
+            const config = document.querySelector('meta[name="pytml-update-mode"]');
+            if (config) {
+                this.updateMode = config.getAttribute('content') === 'replace' ? 'replace' : 'append';
+            }
             
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
@@ -30,11 +39,19 @@ import js
 from js import window
 
 class HTMLOutput:
+    def __init__(self):
+        self.buffer = []
+    
     def write(self, text):
         if text and text != '\\n':
-            window.displayStyledOutput(str(text))
+            self.buffer.append(str(text))
+            # Flush on newline or every 10ms for smooth updates
+            if '\\n' in text or len(self.buffer) > 0:
+                window.flushOutput()
+    
     def flush(self):
-        pass
+        if self.buffer:
+            window.flushOutput()
 
 sys.stdout = HTMLOutput()
 
@@ -86,6 +103,14 @@ def input(prompt=""):
                     const code = await response.text();
                     
                     this.clearOutput();
+                    
+                    // Check for special comment to control output mode
+                    if (code.includes('# pytml-mode: replace')) {
+                        this.updateMode = 'replace';
+                    } else if (code.includes('# pytml-mode: append')) {
+                        this.updateMode = 'append';
+                    }
+                    
                     await this.runPythonWithInlineInputs(code);
                     scriptTag.remove();
 
@@ -112,6 +137,9 @@ def input(prompt=""):
                 }
                 
                 await window.pyodide.runPythonAsync(line);
+                
+                // Allow UI to update between iterations
+                await new Promise(resolve => setTimeout(resolve, 10));
             }
         }
 
@@ -158,18 +186,49 @@ def input(prompt=""):
 
         clearOutput() {
             if (this.outputContainer) {
-                this.outputContainer.innerHTML = '';
+                if (this.updateMode === 'replace') {
+                    this.outputContainer.innerHTML = '';
+                }
+                this.outputBuffer = [];
             }
+        }
+
+        flushOutput() {
+            if (this.outputBuffer.length === 0) return;
+            
+            const text = this.outputBuffer.join('');
+            this.outputBuffer = [];
+            
+            if (this.updateMode === 'replace') {
+                // Replace mode: update the last line or create new
+                const lastChild = this.outputContainer.lastChild;
+                if (lastChild && lastChild.classList && lastChild.classList.contains('pytml-line')) {
+                    lastChild.textContent = text;
+                } else {
+                    this.addOutputLine(text, 'pytml-line');
+                }
+            } else {
+                // Append mode: add new line
+                this.addOutputLine(text, 'pytml-line');
+            }
+            
+            // Auto-scroll to bottom
+            this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
         }
 
         addOutputLine(text, className) {
             if (!this.outputContainer) return;
             
-            const line = document.createElement('div');
-            line.textContent = text;
-            line.className = className;
-            this.outputContainer.appendChild(line);
-            line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            // Split by newlines for multiple lines
+            const lines = text.split('\n');
+            for (const line of lines) {
+                if (line.trim() || line === '') {
+                    const lineElement = document.createElement('div');
+                    lineElement.textContent = line;
+                    lineElement.className = className;
+                    this.outputContainer.appendChild(lineElement);
+                }
+            }
         }
 
         addStyledOutput(text) {
@@ -179,13 +238,23 @@ def input(prompt=""):
                 className = 'pytml-error';
             } else if (text.includes('successfully')) {
                 className = 'pytml-success';
-            } else if (text.includes('+----')) {
-                className = 'pytml-border';
-            } else if (text.includes('----')) {
+            } else if (text.includes('+----') || text.includes('----')) {
                 className = 'pytml-border';
             }
             
-            this.addOutputLine(text, className);
+            if (this.updateMode === 'replace') {
+                // For while True loops, replace the last line
+                const lastChild = this.outputContainer.lastChild;
+                if (lastChild && lastChild.classList && lastChild.classList.contains(className)) {
+                    lastChild.textContent = text;
+                } else {
+                    this.addOutputLine(text, className);
+                }
+            } else {
+                this.addOutputLine(text, className);
+            }
+            
+            this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
         }
 
         addError(text) {
@@ -226,6 +295,12 @@ def input(prompt=""):
     window.displayStyledOutput = function(text) {
         if (window.pytmlInstance) {
             window.pytmlInstance.addStyledOutput(text);
+        }
+    };
+
+    window.flushOutput = function() {
+        if (window.pytmlInstance) {
+            window.pytmlInstance.flushOutput();
         }
     };
 
