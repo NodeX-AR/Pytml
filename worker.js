@@ -1,75 +1,79 @@
-// Web Worker for Pyodide Python execution
+// worker.js
+importScripts('https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js');
 
-let pyodide = null;
-let ready = false;
-
-// Load Pyodide with absolute CDN
-importScripts('https://cdn.jsdelivr.net/pyodide/v0.26.0/full/pyodide.js');
+let pyodide;
+let inputCallbacks = new Map();
 
 async function initPyodide() {
     if (!pyodide) {
-        pyodide = await loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.0/full/'
-        });
+        pyodide = await loadPyodide();
         
-        // Pre-import sys and io
-        await pyodide.runPythonAsync(`
+        // Override Python's input() function
+        pyodide.runPython(`
 import sys
-import io
-        `);
-        ready = true;
-        console.log('Worker: Pyodide ready');
+import asyncio
+
+class PyodideInput:
+    def __init__(self):
+        self.input_queue = asyncio.Queue()
+    
+    async def async_input(self, prompt):
+        await self.input_queue.put(prompt)
+        value = await self.input_queue.get()
+        return value
+    
+    def send_input(self, value):
+        self.input_queue.put_nowait(value)
+
+_input_handler = PyodideInput()
+sys.stdin = _input_handler
+
+def input(prompt=""):
+    if prompt:
+        print(prompt, end="")
+    return asyncio.get_event_loop().run_until_complete(_input_handler.async_input(prompt))
+`);
     }
+    return pyodide;
 }
 
-// Handle messages from main thread
-self.onmessage = async (event) => {
-    const { type, id, code, inputs } = event.data;
+self.onmessage = async function(event) {
+    const { type, id, code } = event.data;
     
     if (type === 'ready') {
-        await initPyodide();
-        self.postMessage({ id: id, success: true, output: 'ready' });
-        return;
+        try {
+            await initPyodide();
+            self.postMessage({ id, success: true });
+        } catch (error) {
+            self.postMessage({ id, success: false, error: error.message });
+        }
     }
     
-    if (type === 'run') {
-        if (!ready) {
-            await initPyodide();
-        }
-        
+    else if (type === 'run_interactive') {
         try {
-            // Pass inputs as Python dictionary (fixes inputs.get() error)
-            pyodide.globals.set('inputs', pyodide.toPy(inputs || {}));
+            const pyodide = await initPyodide();
             
-            // Setup output capture
-            await pyodide.runPythonAsync('sys.stdout = io.StringIO()');
+            // Capture stdout
+            pyodide.runPython(`
+import sys
+from io import StringIO
+sys.stdout = StringIO()
+`);
             
-            // Execute user code (no indentation issues!)
+            // Run the code
             await pyodide.runPythonAsync(code);
             
-            // Get captured output
+            // Get output
             const output = pyodide.runPython('sys.stdout.getvalue()');
             
-            // Restore stdout
-            await pyodide.runPythonAsync('sys.stdout = sys.__stdout__');
-            
-            self.postMessage({
-                id: id,
-                success: true,
-                output: output
-            });
-            
+            self.postMessage({ id, success: true, output: output });
         } catch (error) {
-            // Restore stdout on error
-            try {
-                await pyodide.runPythonAsync('sys.stdout = sys.__stdout__');
-            } catch(e) {}
-            
-            self.postMessage({
-                id: id,
-                success: false,
-                error: error.message
-            });
+            self.postMessage({ id, success: false, error: error.message });
         }
+    }
+    
+    else if (type === 'input_response') {
+        // Send input back to Python
+        pyodide.runPython(`_input_handler.send_input(${JSON.stringify(event.data.value)})`);
     }
 };
