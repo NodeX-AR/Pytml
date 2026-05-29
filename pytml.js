@@ -3,12 +3,21 @@
         constructor() {
             this.worker = null;
             this.callbacks = new Map();
-            this.init();
+            // Wait for DOM before initializing
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => this.init());
+            } else {
+                this.init();
+            }
         }
 
         async init() {
             console.log('PYTML: Initializing...');
-            this.showStatus('Loading Python (first time: 10-15s)...');
+            
+            // Only show status if body exists
+            if (document.body) {
+                this.showStatus('Loading Python (first time: 10-15s)...');
+            }
 
             try {
                 const workerUrl = 'https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@latest/worker.js';
@@ -34,11 +43,16 @@
 
                 this.worker.onerror = (error) => {
                     console.error('Worker error:', error);
-                    this.showStatus('Worker error: ' + error.message, true);
+                    if (document.body) {
+                        this.showStatus('Worker error: ' + error.message, true);
+                    }
                 };
 
                 await this.waitForWorker();
-                this.hideStatus();
+                
+                if (document.body) {
+                    this.hideStatus();
+                }
                 console.log('PYTML: Ready!');
 
                 await this.processPage();
@@ -46,11 +60,12 @@
 
             } catch (error) {
                 console.error('PYTML Error:', error);
-                this.showStatus('Failed to load: ' + error.message, true);
+                if (document.body) {
+                    this.showStatus('Failed to load: ' + error.message, true);
+                }
             }
         }
 
-        // NEW: Load external .py files
         async loadExternalPythonFiles() {
             const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
             
@@ -62,21 +77,14 @@
                     const response = await fetch(pyFile);
                     const code = await response.text();
                     
-                    // Create output container near the script tag
-                    const outputId = `pytml-out-${Date.now()}-${Math.random()}`;
-                    const outputDiv = document.createElement('div');
-                    outputDiv.id = outputId;
-                    outputDiv.style.cssText = 'background:#f4f4f4;padding:15px;margin:10px 0;border-radius:5px;font-family:monospace';
-                    scriptTag.insertAdjacentElement('afterend', outputDiv);
-                    
                     // Run Python code
                     const result = await this.runPython(code, {});
                     
-                    // Display output
-                    outputDiv.innerHTML = `<strong>📄 Output from ${pyFile}:</strong><br><pre style="margin:10px 0 0 0;background:#fff;padding:10px;border-radius:3px">${this.escapeHtml(result)}</pre>`;
-                    
-                    // Remove the script tag (optional)
-                    // scriptTag.remove();
+                    // Display output after the script tag
+                    const outputDiv = document.createElement('div');
+                    outputDiv.style.cssText = 'background:#f4f4f4;padding:15px;margin:10px 0;border-radius:5px;font-family:monospace;white-space:pre-wrap';
+                    outputDiv.textContent = result;
+                    scriptTag.insertAdjacentElement('afterend', outputDiv);
                     
                 } catch(e) {
                     console.error(`Error loading ${pyFile}:`, e);
@@ -95,14 +103,7 @@
             cleaned = cleaned.replace(/&amp;/g, '&');
             cleaned = cleaned.replace(/&quot;/g, '"');
             cleaned = cleaned.replace(/\r\n/g, '\n');
-            cleaned = cleaned.replace(/\n\s*\n/g, '\n');
             return cleaned;
-        }
-
-        escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
         }
 
         waitForWorker() {
@@ -168,9 +169,9 @@
                 const code = el.getAttribute('data-python-text');
                 try {
                     const result = await this.runPython(`print(${code})`);
-                    el.textContent = result.trim();
+                    if (el) el.textContent = result.trim();
                 } catch(e) {
-                    el.textContent = 'Error: ' + e.message;
+                    if (el) el.textContent = 'Error: ' + e.message;
                 }
             }
 
@@ -205,6 +206,7 @@
         }
 
         showStatus(message, isError = false) {
+            if (!document.body) return;
             let status = document.getElementById('pytml-status');
             if (!status) {
                 status = document.createElement('div');
@@ -233,16 +235,11 @@
         }
 
         hideStatus() {
+            if (!document.body) return;
             const status = document.getElementById('pytml-status');
             if (status) status.remove();
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            window.pytml = new PYTML();
-        });
-    } else {
-        window.pytml = new PYTML();
-    }
+    window.pytml = new PYTML();
 })(window);
