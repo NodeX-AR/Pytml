@@ -1,14 +1,15 @@
-// Load Pyodide from CDN
+// Load Pyodide from YOUR CDN (no CORS issues!)
 importScripts('https://pytml.vercel.app/pyodide.js');
+
 let pyodide;
 
 async function initPyodide() {
     if (!pyodide) {
         pyodide = await loadPyodide({
-            indexURL: 'https://unpkg.com/pyodide@0.26.4/full/'
+            indexURL: 'https://pytml.vercel.app/'
         });
         
-        // Setup input handling
+        // Override Python's input() function
         pyodide.runPython(`
 import sys
 import asyncio
@@ -31,7 +32,7 @@ sys.stdin = _input_handler
 def input(prompt=""):
     if prompt:
         print(prompt, end="")
-    return asyncio.get_event_loop().run_until_complete(_input_handler.async_input(prompt))
+    return asyncio.get_event_loop().run_until_complete(_handler.async_input(prompt))
 `);
     }
     return pyodide;
@@ -53,7 +54,6 @@ self.onmessage = async function(event) {
         try {
             const pyodide = await initPyodide();
             
-            // Capture stdout
             pyodide.runPython(`
 import sys
 from io import StringIO
