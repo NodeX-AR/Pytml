@@ -17,23 +17,23 @@
                 this.worker = new Worker(workerUrl);
 
                 this.worker.onmessage = (event) => {
-                    const { id, success, output, error, inputRequest } = event.data;
+                    const data = event.data;
                     
                     // Handle input requests from Python
-                    if (inputRequest) {
-                        this.handleInputRequest(id, inputRequest);
+                    if (data.type === 'input_request') {
+                        this.handleInputRequest(data.id, data.prompt);
                         return;
                     }
                     
                     // Handle normal execution results
-                    if (this.callbacks.has(id)) {
-                        const callback = this.callbacks.get(id);
-                        if (success) {
-                            callback.resolve(output);
+                    if (this.callbacks.has(data.id)) {
+                        const callback = this.callbacks.get(data.id);
+                        if (data.success) {
+                            callback.resolve(data.output);
                         } else {
-                            callback.reject(new Error(error));
+                            callback.reject(new Error(data.error));
                         }
-                        this.callbacks.delete(id);
+                        this.callbacks.delete(data.id);
                     }
                 };
 
@@ -57,70 +57,15 @@
         }
 
         handleInputRequest(id, prompt) {
-            // Create a modal dialog for input
-            const modal = this.createInputModal(prompt, (value) => {
-                // Send the input back to the worker
-                this.worker.postMessage({
-                    type: 'input_response',
-                    id: id,
-                    value: value
-                });
+            // Use browser's native prompt for simplicity
+            const userInput = prompt(prompt);
+            
+            // Send the input back to the worker
+            this.worker.postMessage({
+                type: 'input_response',
+                id: id,
+                value: userInput || ''
             });
-            document.body.appendChild(modal);
-        }
-
-        createInputModal(prompt, callback) {
-            const modal = document.createElement('div');
-            modal.className = 'pytml-modal';
-            modal.innerHTML = `
-                <div class="pytml-modal-content">
-                    <p><strong>${this.escapeHtml(prompt)}</strong></p>
-                    <input type="text" id="pytml-input" placeholder="Type your answer here..." autofocus>
-                    <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
-                        <button id="pytml-submit">Submit</button>
-                    </div>
-                </div>
-            `;
-            
-            modal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 10001;
-            `;
-            
-            const modalContent = modal.querySelector('.pytml-modal-content');
-            modalContent.style.cssText = `
-                background: white;
-                padding: 20px;
-                border-radius: 8px;
-                min-width: 350px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                font-family: system-ui, -apple-system, sans-serif;
-            `;
-            
-            const input = modal.querySelector('#pytml-input');
-            const submit = modal.querySelector('#pytml-submit');
-            
-            const handleSubmit = () => {
-                callback(input.value);
-                modal.remove();
-            };
-            
-            submit.onclick = handleSubmit;
-            input.onkeypress = (e) => {
-                if (e.key === 'Enter') {
-                    handleSubmit();
-                }
-            };
-            
-            return modal;
         }
 
         async loadExternalPythonFiles() {
@@ -157,6 +102,9 @@
                     // Display output
                     outputDiv.innerHTML = `<strong>📄 Output:</strong><br><pre style="margin:10px 0 0 0;background:#2d2d2d;padding:10px;border-radius:3px;color:#d4d4d4">${this.escapeHtml(result)}</pre>`;
 
+                    // Remove the original script tag
+                    scriptTag.remove();
+
                 } catch(e) {
                     console.error(`Error loading ${pyFile}:`, e);
                     const errorDiv = document.createElement('div');
@@ -177,6 +125,14 @@
                     id: id,
                     code: code
                 });
+                
+                // Timeout after 30 seconds
+                setTimeout(() => {
+                    if (this.callbacks.has(id)) {
+                        this.callbacks.delete(id);
+                        reject(new Error('Execution timeout (30s)'));
+                    }
+                }, 30000);
             });
         }
 
@@ -235,6 +191,7 @@
         }
     }
 
+    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             window.pytml = new PYTML();
