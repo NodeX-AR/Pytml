@@ -3,8 +3,7 @@
         constructor() {
             this.outputContainer = null;
             this.outputBuffer = [];
-            this.updateMode = 'append'; // 'append' or 'replace'
-            this.updateInterval = null;
+            this.updateMode = 'append';
             this.init();
         }
 
@@ -13,7 +12,6 @@
             this.createOutputContainer();
             this.showStatus('Loading Python...');
             
-            // Check for user-configured update mode
             const config = document.querySelector('meta[name="pytml-update-mode"]');
             if (config) {
                 this.updateMode = config.getAttribute('content') === 'replace' ? 'replace' : 'append';
@@ -45,7 +43,6 @@ class HTMLOutput:
     def write(self, text):
         if text and text != '\\n':
             self.buffer.append(str(text))
-            # Flush on newline or every 10ms for smooth updates
             if '\\n' in text or len(self.buffer) > 0:
                 window.flushOutput()
     
@@ -100,11 +97,10 @@ def input(prompt=""):
 
                 try {
                     const response = await fetch(pyFile);
-                    const code = await response.text();
+                    let code = await response.text();
                     
                     this.clearOutput();
                     
-                    // Check for special comment to control output mode
                     if (code.includes('# pytml-mode: replace')) {
                         this.updateMode = 'replace';
                     } else if (code.includes('# pytml-mode: append')) {
@@ -121,26 +117,37 @@ def input(prompt=""):
         }
 
         async runPythonWithInlineInputs(code) {
-            const lines = code.split('\n');
+            // Preserve indentation - execute as complete block
+            let modifiedCode = code;
             
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i];
-                if (!line.trim()) continue;
-                
-                if (line.includes('input(')) {
-                    const promptMatch = line.match(/input\s*\(\s*["'](.*?)["']\s*\)/);
-                    const prompt = promptMatch ? promptMatch[1] : "Enter Input:";
-                    
-                    const value = await this.createInlineInput(prompt);
-                    const safeValue = value.replace(/"/g, '\\"');
-                    line = line.replace(/input\s*\(.*?\)/, `"${safeValue}"`);
-                }
-                
-                await window.pyodide.runPythonAsync(line);
-                
-                // Allow UI to update between iterations
-                await new Promise(resolve => setTimeout(resolve, 10));
+            // Find all input() calls
+            const inputPattern = /input\s*\(\s*["'](.*?)["']\s*\)/g;
+            const inputPromises = [];
+            const replacements = [];
+            let match;
+            
+            while ((match = inputPattern.exec(code)) !== null) {
+                const prompt = match[1];
+                inputPromises.push(this.createInlineInput(prompt));
+                replacements.push({
+                    original: match[0],
+                    index: match.index
+                });
             }
+            
+            const values = await Promise.all(inputPromises);
+            
+            // Replace in reverse order
+            for (let i = replacements.length - 1; i >= 0; i--) {
+                const value = values[i];
+                const safeValue = value.replace(/"/g, '\\"');
+                const before = modifiedCode.substring(0, replacements[i].index);
+                const after = modifiedCode.substring(replacements[i].index + replacements[i].original.length);
+                modifiedCode = before + `"${safeValue}"` + after;
+            }
+            
+            // Execute complete code block (preserves indentation)
+            await window.pyodide.runPythonAsync(modifiedCode);
         }
 
         createInlineInput(prompt) {
@@ -170,7 +177,6 @@ def input(prompt=""):
                 const submit = () => {
                     const value = inputField.value;
                     container.remove();
-                    this.addOutputLine(prompt + ' ' + value, 'pytml-user-input');
                     resolve(value);
                 };
                 
@@ -200,7 +206,6 @@ def input(prompt=""):
             this.outputBuffer = [];
             
             if (this.updateMode === 'replace') {
-                // Replace mode: update the last line or create new
                 const lastChild = this.outputContainer.lastChild;
                 if (lastChild && lastChild.classList && lastChild.classList.contains('pytml-line')) {
                     lastChild.textContent = text;
@@ -208,18 +213,15 @@ def input(prompt=""):
                     this.addOutputLine(text, 'pytml-line');
                 }
             } else {
-                // Append mode: add new line
                 this.addOutputLine(text, 'pytml-line');
             }
             
-            // Auto-scroll to bottom
             this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
         }
 
         addOutputLine(text, className) {
             if (!this.outputContainer) return;
             
-            // Split by newlines for multiple lines
             const lines = text.split('\n');
             for (const line of lines) {
                 if (line.trim() || line === '') {
@@ -243,7 +245,6 @@ def input(prompt=""):
             }
             
             if (this.updateMode === 'replace') {
-                // For while True loops, replace the last line
                 const lastChild = this.outputContainer.lastChild;
                 if (lastChild && lastChild.classList && lastChild.classList.contains(className)) {
                     lastChild.textContent = text;
