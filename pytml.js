@@ -2,8 +2,6 @@
     class PYTML {
         constructor() {
             this.outputContainer = null;
-            this.outputBuffer = [];
-            this.updateMode = 'append';
             this.init();
         }
 
@@ -12,54 +10,37 @@
             this.createOutputContainer();
             this.showStatus('Loading Python...');
             
-            const config = document.querySelector('meta[name="pytml-update-mode"]');
-            if (config) {
-                this.updateMode = config.getAttribute('content') === 'replace' ? 'replace' : 'append';
-            }
-            
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
             
             script.onload = async () => {
                 this.showStatus('Initializing Python...');
                 
+                // OPTIMIZED: Load with fullStdLib: false for faster loading
                 let pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
-                    fullStdLib: false,
-                    packages: []
+                    fullStdLib: false,  // Don't load unnecessary stdlib (faster!)
+                    packages: []        // Only load packages you need
                 });
                 
                 window.pyodide = pyodide;
                 
                 pyodide.runPython(`
 import sys
-import js
 from js import window
 
 class HTMLOutput:
-    def __init__(self):
-        self.buffer = []
-    
     def write(self, text):
         if text and text != '\\n':
-            self.buffer.append(str(text))
-            if '\\n' in text or len(self.buffer) > 0:
-                window.flushOutput()
-    
+            window.displayStyledOutput(str(text))
     def flush(self):
-        if self.buffer:
-            window.flushOutput()
+        pass
 
 sys.stdout = HTMLOutput()
-
-def input(prompt=""):
-    if prompt:
-        print(prompt)
-    return js.createInlineInput(str(prompt))
 `);
                 
                 this.hideStatus();
-                console.log('PYTML: Ready');
+                console.log('PYTML: Ready!');
                 await this.loadExternalPythonFiles();
             };
             
@@ -97,16 +78,9 @@ def input(prompt=""):
 
                 try {
                     const response = await fetch(pyFile);
-                    let code = await response.text();
+                    const code = await response.text();
                     
                     this.clearOutput();
-                    
-                    if (code.includes('# pytml-mode: replace')) {
-                        this.updateMode = 'replace';
-                    } else if (code.includes('# pytml-mode: append')) {
-                        this.updateMode = 'append';
-                    }
-                    
                     await this.runPythonWithInlineInputs(code);
                     scriptTag.remove();
 
@@ -117,37 +91,23 @@ def input(prompt=""):
         }
 
         async runPythonWithInlineInputs(code) {
-            // Preserve indentation - execute as complete block
-            let modifiedCode = code;
+            const lines = code.split('\n');
             
-            // Find all input() calls
-            const inputPattern = /input\s*\(\s*["'](.*?)["']\s*\)/g;
-            const inputPromises = [];
-            const replacements = [];
-            let match;
-            
-            while ((match = inputPattern.exec(code)) !== null) {
-                const prompt = match[1];
-                inputPromises.push(this.createInlineInput(prompt));
-                replacements.push({
-                    original: match[0],
-                    index: match.index
-                });
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                if (!line.trim()) continue;
+                
+                if (line.includes('input(')) {
+                    const promptMatch = line.match(/input\s*\(\s*["'](.*?)["']\s*\)/);
+                    const prompt = promptMatch ? promptMatch[1] : "Enter Input:";
+                    
+                    const value = await this.createInlineInput(prompt);
+                    const safeValue = value.replace(/"/g, '\\"');
+                    line = line.replace(/input\s*\(.*?\)/, `"${safeValue}"`);
+                }
+                
+                await window.pyodide.runPythonAsync(line);
             }
-            
-            const values = await Promise.all(inputPromises);
-            
-            // Replace in reverse order
-            for (let i = replacements.length - 1; i >= 0; i--) {
-                const value = values[i];
-                const safeValue = value.replace(/"/g, '\\"');
-                const before = modifiedCode.substring(0, replacements[i].index);
-                const after = modifiedCode.substring(replacements[i].index + replacements[i].original.length);
-                modifiedCode = before + `"${safeValue}"` + after;
-            }
-            
-            // Execute complete code block (preserves indentation)
-            await window.pyodide.runPythonAsync(modifiedCode);
         }
 
         createInlineInput(prompt) {
@@ -164,23 +124,24 @@ def input(prompt=""):
                 inputField.className = 'pytml-input';
                 inputField.placeholder = 'Type your answer here...';
                 
-                const submitButton = document.createElement('button');
-                submitButton.textContent = 'Submit';
-                submitButton.className = 'pytml-submit';
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = 'Submit';
+                submitBtn.className = 'pytml-submit';
                 
                 container.appendChild(promptText);
                 container.appendChild(inputField);
-                container.appendChild(submitButton);
+                container.appendChild(submitBtn);
                 
                 this.outputContainer.appendChild(container);
                 
                 const submit = () => {
                     const value = inputField.value;
                     container.remove();
+                    this.addOutputLine(`> ${prompt} ${value}`, 'pytml-user-input');
                     resolve(value);
                 };
                 
-                submitButton.onclick = submit;
+                submitBtn.onclick = submit;
                 inputField.onkeypress = (e) => {
                     if (e.key === 'Enter') submit();
                 };
@@ -192,76 +153,36 @@ def input(prompt=""):
 
         clearOutput() {
             if (this.outputContainer) {
-                if (this.updateMode === 'replace') {
-                    this.outputContainer.innerHTML = '';
-                }
-                this.outputBuffer = [];
+                this.outputContainer.innerHTML = '';
             }
         }
 
-        flushOutput() {
-            if (this.outputBuffer.length === 0) return;
-            
-            const text = this.outputBuffer.join('');
-            this.outputBuffer = [];
-            
-            if (this.updateMode === 'replace') {
-                const lastChild = this.outputContainer.lastChild;
-                if (lastChild && lastChild.classList && lastChild.classList.contains('pytml-line')) {
-                    lastChild.textContent = text;
-                } else {
-                    this.addOutputLine(text, 'pytml-line');
-                }
-            } else {
-                this.addOutputLine(text, 'pytml-line');
-            }
-            
-            this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
-        }
-
-        addOutputLine(text, className) {
+        addOutputLine(text, className = 'pytml-line') {
             if (!this.outputContainer) return;
             
-            const lines = text.split('\n');
-            for (const line of lines) {
-                if (line.trim() || line === '') {
-                    const lineElement = document.createElement('div');
-                    lineElement.textContent = line;
-                    lineElement.className = className;
-                    this.outputContainer.appendChild(lineElement);
-                }
-            }
+            const line = document.createElement('div');
+            line.textContent = text;
+            line.className = className;
+            this.outputContainer.appendChild(line);
+            line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         addStyledOutput(text) {
             let className = 'pytml-line';
-            
             if (text.includes('Error') || text.includes('not found')) {
                 className = 'pytml-error';
-            } else if (text.includes('successfully')) {
+            } else if (text.includes('Hello')) {
                 className = 'pytml-success';
-            } else if (text.includes('+----') || text.includes('----')) {
+            } else if (text.includes('+----')) {
                 className = 'pytml-border';
             }
-            
-            if (this.updateMode === 'replace') {
-                const lastChild = this.outputContainer.lastChild;
-                if (lastChild && lastChild.classList && lastChild.classList.contains(className)) {
-                    lastChild.textContent = text;
-                } else {
-                    this.addOutputLine(text, className);
-                }
-            } else {
-                this.addOutputLine(text, className);
-            }
-            
-            this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
+            this.addOutputLine(text, className);
         }
 
         addError(text) {
             if (!this.outputContainer) return;
             const errorDiv = document.createElement('div');
-            errorDiv.textContent = text;
+            errorDiv.textContent = `❌ ${text}`;
             errorDiv.className = 'pytml-error';
             this.outputContainer.appendChild(errorDiv);
         }
@@ -281,9 +202,7 @@ def input(prompt=""):
                 status.classList.remove('pytml-status-error');
             }
             setTimeout(() => {
-                if (status) {
-                    status.classList.add('pytml-status-hidden');
-                }
+                if (status) status.style.opacity = '0';
             }, 3000);
         }
 
@@ -297,16 +216,6 @@ def input(prompt=""):
         if (window.pytmlInstance) {
             window.pytmlInstance.addStyledOutput(text);
         }
-    };
-
-    window.flushOutput = function() {
-        if (window.pytmlInstance) {
-            window.pytmlInstance.flushOutput();
-        }
-    };
-
-    window.createInlineInput = function(prompt) {
-        return window.pytmlInstance.createInlineInput(prompt);
     };
 
     if (document.readyState === 'loading') {
