@@ -25,8 +25,6 @@
                 pyodide.runPython(`
 import sys
 import js
-from js import document
-import asyncio
 
 class HTMLOutput:
     def write(self, text):
@@ -37,28 +35,11 @@ class HTMLOutput:
 
 sys.stdout = HTMLOutput()
 
-# Global variable to store input result
-_input_result = None
-_input_future = None
-
-async def async_input(prompt=""):
-    global _input_result, _input_future
+# Override input to use JavaScript prompt
+def input(prompt=""):
     if prompt:
         print(prompt)
-    
-    # Create a future for this input
-    loop = asyncio.get_event_loop()
-    _input_future = loop.create_future()
-    
-    # Call JS to create input UI
-    js.createInlineInputWithCallback(str(prompt))
-    
-    # Wait for the result
-    _input_result = await _input_future
-    return _input_result
-
-def input(prompt=""):
-    return asyncio.get_event_loop().run_until_complete(async_input(prompt))
+    return js.prompt(str(prompt))
 `);
                 
                 this.hideStatus();
@@ -125,94 +106,6 @@ def input(prompt=""):
             }
         }
 
-        createInlineInputWithCallback(prompt) {
-            // Create input container
-            const container = document.createElement('div');
-            container.style.cssText = `
-                background: rgba(102, 126, 234, 0.1);
-                border-radius: 10px;
-                padding: 15px;
-                margin: 15px 0;
-                border: 1px solid rgba(102, 126, 234, 0.3);
-            `;
-            
-            // Add prompt text
-            const promptText = document.createElement('div');
-            promptText.textContent = prompt;
-            promptText.style.cssText = `
-                color: #ffd93d;
-                font-weight: 500;
-                margin-bottom: 10px;
-                font-family: system-ui, sans-serif;
-            `;
-            container.appendChild(promptText);
-            
-            // Add input field
-            const inputField = document.createElement('input');
-            inputField.type = 'text';
-            inputField.placeholder = 'Type your answer here...';
-            inputField.style.cssText = `
-                width: 100%;
-                padding: 10px 12px;
-                background: rgba(255,255,255,0.1);
-                border: 1px solid rgba(102, 126, 234, 0.5);
-                border-radius: 8px;
-                color: white;
-                font-size: 14px;
-                font-family: monospace;
-                outline: none;
-                box-sizing: border-box;
-                margin-bottom: 10px;
-            `;
-            container.appendChild(inputField);
-            
-            // Add submit button
-            const submitBtn = document.createElement('button');
-            submitBtn.textContent = '✓ Submit';
-            submitBtn.style.cssText = `
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border: none;
-                padding: 8px 20px;
-                border-radius: 8px;
-                color: white;
-                font-weight: 600;
-                cursor: pointer;
-                transition: transform 0.2s;
-            `;
-            container.appendChild(submitBtn);
-            
-            // Add to output container
-            this.outputContainer.appendChild(container);
-            
-            // Handle submission
-            const submit = () => {
-                const value = inputField.value;
-                container.remove();
-                // Set the result in Python
-                window.pyodide.runPython(`
-import asyncio
-global _input_future
-if _input_future and not _input_future.done():
-    _input_future.set_result('${value.replace(/'/g, "\\'")}')
-`);
-            };
-            
-            submitBtn.onclick = submit;
-            inputField.onkeypress = (e) => {
-                if (e.key === 'Enter') submit();
-            };
-            
-            inputField.focus();
-            
-            // Scroll to input
-            container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        createInlineInput(prompt) {
-            // This is kept for compatibility but we use the callback version
-            return this.createInlineInputWithCallback(prompt);
-        }
-
         clearOutput() {
             if (this.outputContainer) {
                 this.outputContainer.innerHTML = '';
@@ -224,7 +117,6 @@ if _input_future and not _input_future.done():
             
             const line = document.createElement('div');
             
-            // Color coding for different output types
             let color = '#43e97b';
             if (text.includes('Error') || text.includes('not found')) {
                 color = '#fa709a';
@@ -303,15 +195,9 @@ if _input_future and not _input_future.done():
             window.pytmlInstance.addStyledOutput(text);
         }
     };
-
-    window.createInlineInput = function(prompt) {
-        return window.pytmlInstance.createInlineInput(prompt);
-    };
     
-    window.createInlineInputWithCallback = function(prompt) {
-        if (window.pytmlInstance) {
-            window.pytmlInstance.createInlineInputWithCallback(prompt);
-        }
+    window.prompt = function(text) {
+        return prompt(text);
     };
 
     if (document.readyState === 'loading') {
