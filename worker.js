@@ -1,17 +1,14 @@
-// No importScripts needed anymore! Pyodide is already here
-// The pyodide.js file you embedded contains everything
-
+// Load Pyodide from CDN
+importScripts('https://pytml.vercel.app/pyodide.js');
 let pyodide;
-let inputCallbacks = new Map();
 
 async function initPyodide() {
     if (!pyodide) {
-        // loadPyodide is now globally available from your embedded file
         pyodide = await loadPyodide({
-            indexURL: "https://pytml.vercel.app/"
+            indexURL: 'https://unpkg.com/pyodide@0.26.4/full/'
         });
         
-        // Override Python's input() function
+        // Setup input handling
         pyodide.runPython(`
 import sys
 import asyncio
@@ -34,7 +31,7 @@ sys.stdin = _input_handler
 def input(prompt=""):
     if prompt:
         print(prompt, end="")
-    return asyncio.get_event_loop().run_until_complete(_handler.async_input(prompt))
+    return asyncio.get_event_loop().run_until_complete(_input_handler.async_input(prompt))
 `);
     }
     return pyodide;
@@ -63,10 +60,7 @@ from io import StringIO
 sys.stdout = StringIO()
 `);
             
-            // Run the code
             await pyodide.runPythonAsync(code);
-            
-            // Get output
             const output = pyodide.runPython('sys.stdout.getvalue()');
             
             self.postMessage({ id, success: true, output: output });
