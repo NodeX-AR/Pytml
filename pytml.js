@@ -72,12 +72,14 @@ async def __async_input(prompt=""):
 class PytmlModule:
     @staticmethod
     def connect():
-        # Get the caller's filename (URL for external, '<inline>' for inline)
+        # Get caller's filename
         frame = inspect.currentframe().f_back
         filename = frame.f_code.co_filename
-        source = js.window.__pytml_sources.get(filename)
+        # Access JS store without name mangling (use getattr or bracket notation)
+        sources = js.window['__pytml_sources']
+        source = sources.get(filename)
         if source is None:
-            raise RuntimeError(f"Cannot find source for {filename}. Make sure the script is loaded via <script type='text/python'>.")
+            raise RuntimeError(f"Cannot find source for {filename}.")
         # Remove the line containing 'pytml.connect()' to avoid infinite recursion
         lines = source.split('\\n')
         filtered_lines = [line for line in lines if 'pytml.connect()' not in line]
@@ -94,10 +96,8 @@ class PytmlModule:
         InputTransformer().visit(tree)
         ast.fix_missing_locations(tree)
         code_obj = compile(tree, filename, 'exec')
-        # Execute in an async context
         ns = {}
         exec(code_obj, ns)
-        # If the user defined an async main(), run it
         if 'main' in ns and asyncio.iscoroutinefunction(ns['main']):
             asyncio.create_task(ns['main']())
 
@@ -112,12 +112,10 @@ sys.modules['pytml'] = PytmlModule
                 return;
             }
 
-            // Store source of each script
             for (const tag of tags) {
                 const src = tag.getAttribute('src');
                 let source, filename;
                 if (src) {
-                    // External script – requires HTTP server
                     try {
                         const resp = await fetch(src);
                         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -130,14 +128,12 @@ sys.modules['pytml'] = PytmlModule
                         continue;
                     }
                 } else {
-                    // Inline script – works with file://
                     source = tag.textContent;
                     filename = '<inline>';
                 }
                 if (!window.__pytml_sources) window.__pytml_sources = new Map();
                 window.__pytml_sources.set(filename, source);
-                tag.setAttribute('data-pytml-stored', 'true');
-                // Execute the script now – it will call pytml.connect() which transforms and re-runs
+                // Execute the script – it will call pytml.connect() which transforms and re-runs
                 await window.pyodide.runPythonAsync(source);
                 tag.remove();
             }
