@@ -1,4 +1,4 @@
-// pytml.js – input() works without await, AST transformation, no mangling
+// pytml.js – input() works without await, AST transformation
 (function(window) {
     class PYTML {
         constructor() {
@@ -71,7 +71,9 @@ class PytmlModule:
     @staticmethod
     def connect():
         frame = inspect.currentframe().f_back
-        filename = frame.f_code.co_filename
+        filename = frame.f_globals.get('__file__')
+        if not filename:
+            raise RuntimeError("__file__ not set. Make sure pytml.js sets it.")
         sources = js.window.pytmlSources
         if sources is None:
             raise RuntimeError("pytmlSources not found in JavaScript window.")
@@ -110,7 +112,6 @@ sys.modules['pytml'] = PytmlModule
                 return;
             }
 
-            // Create a global Map for source storage
             window.pytmlSources = new Map();
 
             for (const tag of tags) {
@@ -133,8 +134,9 @@ sys.modules['pytml'] = PytmlModule
                     filename = '<inline>';
                 }
                 window.pytmlSources.set(filename, source);
-                // Execute the script (will call pytml.connect() which transforms and re-runs)
-                await window.pyodide.runPythonAsync(source);
+                // Execute the script with __file__ set in globals
+                const globals = { __file__: filename };
+                await window.pyodide.runPythonAsync(source, { globals });
                 tag.remove();
             }
         }
