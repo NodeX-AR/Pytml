@@ -1,9 +1,8 @@
-// pytml.js – input() works without await, using AST transformation
+// pytml.js – input() works without await, AST transformation, no mangling
 (function(window) {
     class PYTML {
         constructor() {
             this.outputContainer = null;
-            this.scriptSources = new Map();   // filename -> source code
             this.init();
         }
 
@@ -64,7 +63,6 @@ class StderrCapture:
 sys.stdout = StdoutCapture()
 sys.stderr = StderrCapture()
 
-# The real async input that will be used after transformation
 async def __async_input(prompt=""):
     if prompt: print(prompt)
     return await js.createInlineInput(str(prompt))
@@ -72,15 +70,15 @@ async def __async_input(prompt=""):
 class PytmlModule:
     @staticmethod
     def connect():
-        # Get caller's filename
         frame = inspect.currentframe().f_back
         filename = frame.f_code.co_filename
-        # Access JS store without name mangling (use getattr or bracket notation)
-        sources = js.window['__pytml_sources']
+        sources = js.window.pytmlSources
+        if sources is None:
+            raise RuntimeError("pytmlSources not found in JavaScript window.")
         source = sources.get(filename)
         if source is None:
             raise RuntimeError(f"Cannot find source for {filename}.")
-        # Remove the line containing 'pytml.connect()' to avoid infinite recursion
+        # Remove the line with pytml.connect()
         lines = source.split('\\n')
         filtered_lines = [line for line in lines if 'pytml.connect()' not in line]
         source_without_connect = '\\n'.join(filtered_lines)
@@ -112,6 +110,9 @@ sys.modules['pytml'] = PytmlModule
                 return;
             }
 
+            // Create a global Map for source storage
+            window.pytmlSources = new Map();
+
             for (const tag of tags) {
                 const src = tag.getAttribute('src');
                 let source, filename;
@@ -131,9 +132,8 @@ sys.modules['pytml'] = PytmlModule
                     source = tag.textContent;
                     filename = '<inline>';
                 }
-                if (!window.__pytml_sources) window.__pytml_sources = new Map();
-                window.__pytml_sources.set(filename, source);
-                // Execute the script – it will call pytml.connect() which transforms and re-runs
+                window.pytmlSources.set(filename, source);
+                // Execute the script (will call pytml.connect() which transforms and re-runs)
                 await window.pyodide.runPythonAsync(source);
                 tag.remove();
             }
