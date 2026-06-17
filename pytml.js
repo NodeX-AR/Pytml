@@ -46,7 +46,7 @@ async def input(prompt=""):
                 
                 this.hideStatus();
                 console.log('PYTML: Ready!');
-                await this.loadExternalPythonFiles();
+                await this.loadPythonScripts();
             };
             
             script.onerror = () => {
@@ -73,7 +73,7 @@ async def input(prompt=""):
                     overflow-y: auto;
                 `;
                 
-                const pyScripts = document.querySelectorAll('script[type="text/python"]');
+                const pyScripts = document.querySelectorAll('script[type="text/python"], py');
                 if (pyScripts.length > 0) {
                     pyScripts[0].insertAdjacentElement('beforebegin', container);
                 } else {
@@ -85,42 +85,68 @@ async def input(prompt=""):
             }
         }
 
-        async loadExternalPythonFiles() {
-            const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
+        /**
+         * Wraps code to handle async operations (for input() calls)
+         */
+        wrapCodeAsync(code) {
+            const lines = code.split('\n');
+            const wrappedLines = [];
+            wrappedLines.push('async def __main__():');
+            
+            for (let line of lines) {
+                // Add indentation
+                let newLine = '    ' + line;
+                // Replace input() with await input()
+                newLine = newLine.replace(/input\(/g, 'await input(');
+                wrappedLines.push(newLine);
+            }
+            
+            wrappedLines.push('');
+            wrappedLines.push('await __main__()');
+            
+            return wrappedLines.join('\n');
+        }
 
+        async loadPythonScripts() {
+            // Load inline <py> tags first (works everywhere including file://)
+            const pyTags = document.querySelectorAll('py');
+            for (let pyTag of pyTags) {
+                const code = pyTag.textContent;
+                console.log('Loading inline Python code from <py> tag');
+                
+                try {
+                    this.clearOutput();
+                    const wrappedCode = this.wrapCodeAsync(code);
+                    await window.pyodide.runPythonAsync(wrappedCode);
+                    pyTag.remove();
+                } catch(e) {
+                    this.addError(e.message);
+                    console.error(e);
+                }
+            }
+
+            // Load external Python files via script tags (HTTP/HTTPS only)
+            const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
             for (let scriptTag of pyScripts) {
                 const pyFile = scriptTag.getAttribute('src');
                 console.log(`Loading: ${pyFile}`);
 
                 try {
                     const response = await fetch(pyFile);
-                    let code = await response.text();
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${pyFile}`);
+                    }
+                    const code = await response.text();
                     
                     this.clearOutput();
-                    
-                    // Wrap the entire code in an async main function and add await to every input call
-                    const lines = code.split('\n');
-                    const wrappedLines = [];
-                    wrappedLines.push('async def __main__():');
-                    
-                    for (let line of lines) {
-                        // Add indentation
-                        let newLine = '    ' + line;
-                        // Replace input() with await input()
-                        newLine = newLine.replace(/input\(/g, 'await input(');
-                        wrappedLines.push(newLine);
-                    }
-                    
-                    wrappedLines.push('');
-                    wrappedLines.push('await __main__()');
-                    
-                    const wrappedCode = wrappedLines.join('\n');
+                    const wrappedCode = this.wrapCodeAsync(code);
                     
                     await window.pyodide.runPythonAsync(wrappedCode);
                     scriptTag.remove();
 
                 } catch(e) {
                     this.addError(e.message);
+                    console.error(e);
                 }
             }
         }
@@ -145,6 +171,7 @@ async def input(prompt=""):
                     font-weight: 500;
                     margin-bottom: 10px;
                     font-family: system-ui, sans-serif;
+                    word-break: break-word;
                 `;
                 container.appendChild(promptText);
                 
@@ -164,6 +191,8 @@ async def input(prompt=""):
                     outline: none;
                     box-sizing: border-box;
                     margin-bottom: 10px;
+                    -webkit-appearance: none;
+                    appearance: none;
                 `;
                 container.appendChild(inputField);
                 
@@ -173,12 +202,16 @@ async def input(prompt=""):
                 submitBtn.style.cssText = `
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border: none;
-                    padding: 8px 20px;
+                    padding: 10px 20px;
                     border-radius: 8px;
                     color: white;
                     font-weight: 600;
                     cursor: pointer;
                     transition: transform 0.2s;
+                    font-size: 14px;
+                    touch-action: manipulation;
+                    -webkit-appearance: none;
+                    appearance: none;
                 `;
                 container.appendChild(submitBtn);
                 
@@ -232,6 +265,8 @@ async def input(prompt=""):
                 line-height: 1.5;
                 font-family: monospace;
                 white-space: pre-wrap;
+                word-break: break-word;
+                overflow-wrap: break-word;
             `;
             line.textContent = text;
             this.outputContainer.appendChild(line);
@@ -248,6 +283,8 @@ async def input(prompt=""):
                 margin: 10px 0;
                 border-radius: 8px;
                 font-family: monospace;
+                word-break: break-word;
+                overflow-wrap: break-word;
             `;
             errorDiv.textContent = `❌ ${text}`;
             this.outputContainer.appendChild(errorDiv);
@@ -269,6 +306,8 @@ async def input(prompt=""):
                     font-family: monospace;
                     font-size: 12px;
                     z-index: 9999;
+                    max-width: 80vw;
+                    word-break: break-word;
                 `;
                 document.body.appendChild(status);
             }
