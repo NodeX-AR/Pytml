@@ -12,7 +12,7 @@
   <meta name="author" content="Aswanth R (NodeX-AR)">
   <link rel="canonical" href="https://pytml.vercel.app/">
 
-  <!-- ========== FAVICON (all sizes) ========== -->
+  <!-- ========== FAVICON ========== -->
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
   <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32">
@@ -74,26 +74,15 @@
   }
   </script>
 
-  <!-- ========== CONTENT SECURITY POLICY ========== -->
-  <!-- This meta tag relaxes CSP to allow CDN resources and inline scripts/styles.
-       If your server sends stricter CSP headers, they may override this.
-       In that case, adjust your server headers accordingly. -->
-  <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
-    script-src 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com https://fonts.gstatic.com;
-    style-src 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://fonts.googleapis.com;
-    img-src 'self' data: https:;
-    font-src https:;
-    connect-src 'self' https:;
-  ">
-
   <!-- ========== FONTS ========== -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- ========== STYLES ========== -->
+  <!-- Tailwind CSS via CDN (script) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
@@ -116,8 +105,6 @@
     .mono { font-family: 'JetBrains Mono', monospace; }
     .text-accent { color: var(--accent); }
     .border-accent { border-color: var(--accent); }
-
-    /* Custom font-heading class */
     .font-heading { font-family: 'Space Grotesk', sans-serif; }
 
     .bg-noise {
@@ -266,7 +253,6 @@
           <div class="flex-1 text-center md:text-left">
             <div class="fade-up">
               <div class="logo-box">
-                <!-- Use 192x192 PNG for crispness -->
                 <img src="/android-chrome-192x192.png" alt="Pytml logo" width="48" height="48">
                 <div class="text">
                   PYTML
@@ -295,7 +281,6 @@
           <div class="flex-1 flex justify-center">
             <div class="relative w-60 h-60 md:w-72 md:h-72 flex items-center justify-center">
               <div class="absolute inset-0 rounded-full border border-[var(--accent)] opacity-20 pulse-ring"></div>
-              <!-- Use 512x512 or 192x192 PNG for hero (192 is fine) -->
               <img src="/android-chrome-192x192.png" alt="Pytml – Python in the browser" class="w-40 h-40 md:w-56 md:h-56 object-contain" style="filter: drop-shadow(0 0 30px rgba(59,130,246,0.2));">
             </div>
           </div>
