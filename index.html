@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- ========== CONTENT SECURITY POLICY ========== -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; font-src 'self' https://cdnjs.cloudflare.com; img-src 'self' data: https:; connect-src 'self' https:;">
+
   <!-- ========== PRIMARY SEO ========== -->
   <title>Pytml – Run Python in the Browser | Zero‑Config JavaScript Library</title>
   <meta name="description" content="Pytml is a zero‑configuration JavaScript library that lets you embed and run Python code directly in your HTML. No backend, no server – just Python in your browser.">
@@ -12,17 +15,13 @@
   <meta name="author" content="Aswanth R (NodeX-AR)">
   <link rel="canonical" href="https://pytml.vercel.app/">
 
-  <!-- ========== FAVICON (all sizes) ========== -->
+  <!-- ========== FAVICON (optimized sizes) ========== -->
   <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
   <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32">
-  <link rel="icon" type="image/png" href="/favicon-48x48.png" sizes="48x48">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="manifest" href="/site.webmanifest">
-  <link rel="icon" type="image/png" href="/android-chrome-192x192.png" sizes="192x192">
-  <link rel="icon" type="image/png" href="/android-chrome-512x512.png" sizes="512x512">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png">
   <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#3b82f6">
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 
   <!-- ========== OPEN GRAPH ========== -->
   <meta property="og:type" content="website">
@@ -76,7 +75,7 @@
 
   <!-- ========== STYLES ========== -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2D2LO6S898QNHQnBLig6MsHmY73hqnqzSTxWaW7T7s1vCAGI6HcDNw4cHFkI3O+iyNAg==" crossorigin="anonymous" referrerpolicy="no-referrer">
 
   <style>
     :root {
@@ -105,7 +104,7 @@
       pointer-events: none;
       z-index: 9998;
       opacity: 0.03;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' result='noise'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='noise' scale='80'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23a)'/%3E%3C/svg%3E");
     }
 
     .btn-term {
@@ -160,7 +159,7 @@
       border-radius: 0.25rem;
       box-shadow: 0 0 20px var(--accent-glow);
     }
-    .logo-box img { width: 48px; height: 48px; display: block; }
+    .logo-box img { width: 48px; height: 48px; display: block; flex-shrink: 0; }
     .logo-box .text {
       font-family: 'JetBrains Mono', monospace;
       font-size: 2.5rem;
@@ -197,6 +196,7 @@
       font-family: monospace;
       border-radius: 999px;
       transition: all 0.2s;
+      white-space: nowrap;
     }
     .skill-tag:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -229,6 +229,17 @@
       50% { transform: scale(1.1); opacity: 0.4; }
       100% { transform: scale(1); opacity: 0.2; }
     }
+
+    .hero-logo {
+      width: 160px;
+      height: 160px;
+    }
+    @media (min-width: 768px) {
+      .hero-logo {
+        width: 224px;
+        height: 224px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -245,7 +256,7 @@
           <div class="flex-1 text-center md:text-left">
             <div class="fade-up">
               <div class="logo-box">
-                <img src="/android-chrome-16x16.png" alt="Pytml logo" width="48" height="48">
+                <img src="/favicon-32x32.png" alt="Pytml logo" width="48" height="48">
                 <div class="text">
                   PYTML
                   <small>python → html</small>
@@ -262,18 +273,18 @@
               </p>
             </div>
             <div class="fade-up mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
-              <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-play"></i> Live Demo</a>
+              <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" rel="noopener noreferrer" class="btn-term"><i class="fas fa-play"></i> Live Demo</a>
               <a href="#code" class="btn-term"><i class="fas fa-code"></i> See Code</a>
-              <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub</a>
+              <a href="https://github.com/NodeX-AR/Pytml" target="_blank" rel="noopener noreferrer" class="btn-term"><i class="fab fa-github"></i> GitHub</a>
             </div>
             <div class="fade-up mt-5">
               <span class="badge-term"><i class="fas fa-check-circle mr-1"></i> Submitted to NITI Frontier Tech</span>
             </div>
           </div>
           <div class="flex-1 flex justify-center">
-            <div class="relative w-60 h-60 md:w-72 md:h-72 flex items-center justify-center">
+            <div class="relative hero-logo flex items-center justify-center">
               <div class="absolute inset-0 rounded-full border border-[var(--accent)] opacity-20 pulse-ring"></div>
-              <img src="/android-chrome-48x48.png" alt="Pytml – Python in the browser" class="w-40 h-40 md:w-56 md:h-56 object-contain" style="filter: drop-shadow(0 0 30px rgba(59,130,246,0.2));">
+              <img src="/android-chrome-192x192.png" alt="Pytml – Python in the browser" width="192" height="192" style="filter: drop-shadow(0 0 30px rgba(59,130,246,0.2)); object-fit: contain;">
             </div>
           </div>
         </div>
@@ -289,7 +300,7 @@
         <div class="grid md:grid-cols-2 gap-8 mt-8">
           <div class="fade-up space-y-4 text-gray-300 leading-relaxed">
             <p><strong>Pytml</strong> is a minimal <strong>JavaScript library</strong> that lets you write <span class="text-accent font-bold">Python inside your HTML</span> – no server, no setup.</p>
-            <p>It wraps <span class="text-accent">Pyodide</span> (Python compiled to <strong>WebAssembly</strong>) and automatically redirects <code class="text-accent">print()</code> to a nice terminal box, and turns <code class="text-accent">input()</code> into a live form.</p>
+            <p>It wraps <span class="text-accent">Pyodide</span> (Python compiled to <strong>WebAssembly</strong>) and automatically redirects <code class="text-accent">print()</code> to a nice terminal UI.</p>
             <p>Built by <span class="text-accent">Aswanth R (NodeX‑AR)</span> – a Class 12 student who wanted a lazy way to show <strong>Python projects</strong> live on the web.</p>
           </div>
           <div class="fade-up card">
@@ -346,7 +357,7 @@ print(f"Hi {name}!")
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="fade-up card text-center"><i class="fas fa-bolt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Zero config</p><p class="text-xs text-gray-500">Just a script tag</p></div>
-          <div class="fade-up card text-center"><i class="fas fa-terminal text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Real I/O</p><p class="text-xs text-gray-500">print() and input() work</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-terminal text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Real I/O</p><p class="text-xs text-gray-500">print() and input()</p></div>
           <div class="fade-up card text-center"><i class="fas fa-mobile-alt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Any device</p><p class="text-xs text-gray-500">Works on phones too</p></div>
           <div class="fade-up card text-center"><i class="fas fa-code text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Open source</p><p class="text-xs text-gray-500">Apache 2.0</p></div>
         </div>
@@ -396,14 +407,14 @@ print(f"Hi {name}!")
           <p class="text-gray-300 max-w-xl mx-auto mb-8">See Pytml in action – run <strong>Python code</strong> live in your browser.</p>
         </div>
         <div class="fade-up flex flex-wrap justify-center gap-5">
-          <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-globe"></i> Live Demo</a>
-          <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub Repo</a>
-          <a href="https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4" target="_blank" class="btn-term"><i class="fas fa-pen"></i> DEV Article</a>
-          <a href="https://devpost.com/software/pytml" target="_blank" class="btn-term"><i class="fas fa-trophy"></i> Devpost</a>
+          <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" rel="noopener noreferrer" class="btn-term"><i class="fas fa-globe"></i> Live Demo</a>
+          <a href="https://github.com/NodeX-AR/Pytml" target="_blank" rel="noopener noreferrer" class="btn-term"><i class="fab fa-github"></i> GitHub Repo</a>
+          <a href="https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4" target="_blank" rel="noopener noreferrer" class="btn-term"><i class="fas fa-pen"></i> DEV Article</a>
+          <a href="https://devpost.com/software/pytml" target="_blank" rel="noopener noreferrer" class="btn-term"><i class="fas fa-trophy"></i> Devpost</a>
         </div>
         <div class="fade-up mt-10 text-sm text-gray-500 mono">
           Made with <span class="text-accent">&lt;3</span> by 
-          <a href="https://a-r.is-a.dev" target="_blank" class="text-accent hover:underline">Aswanth R (NodeX-AR)</a>
+          <a href="https://a-r.is-a.dev" target="_blank" rel="noopener noreferrer" class="text-accent hover:underline">Aswanth R (NodeX-AR)</a>
         </div>
       </div>
     </section>
@@ -412,9 +423,9 @@ print(f"Hi {name}!")
   <!-- FOOTER -->
   <footer class="py-8 px-6 border-t border-white/5 text-center text-xs text-gray-600">
     <p>
-      <a href="https://a-r.is-a.dev" target="_blank" class="footer-link">Aswanth R (NodeX-AR)</a> &nbsp;·&nbsp; 
-      <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="footer-link">GitHub</a> &nbsp;·&nbsp; 
-      <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="footer-link">Live Demo</a>
+      <a href="https://a-r.is-a.dev" target="_blank" rel="noopener noreferrer" class="footer-link">Aswanth R (NodeX-AR)</a> &nbsp;·&nbsp; 
+      <a href="https://github.com/NodeX-AR/Pytml" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub</a> &nbsp;·&nbsp; 
+      <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" rel="noopener noreferrer" class="footer-link">Live Demo</a>
     </p>
     <p class="mt-1 text-gray-700">Open-source under Apache 2.0 &nbsp;·&nbsp; 2026</p>
   </footer>
