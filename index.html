@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -81,9 +80,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- ========== STYLES ========== -->
-  <!-- Tailwind CSS via CDN (script) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
@@ -101,6 +98,7 @@
       color: var(--text);
       font-family: 'Inter', system-ui, sans-serif;
       overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
     }
     h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
@@ -130,9 +128,14 @@
       text-transform: uppercase;
       transition: all 0.2s;
       text-decoration: none;
+      touch-action: manipulation;
+      cursor: pointer;
+      min-height: 48px; /* larger tap target */
     }
     .btn-term::before { content: "> "; margin-right: 4px; color: var(--accent); }
     .btn-term:hover { background: var(--accent); color: #050505; border-color: var(--accent); transform: translateX(4px); }
+    /* On touch, hover state is sticky – keep it subtle */
+    .btn-term:active { transform: scale(0.97); }
 
     .card {
       background: rgba(8,8,8,0.7);
@@ -141,6 +144,7 @@
       border-radius: 0.5rem;
       padding: 1.5rem;
       transition: border 0.25s, transform 0.25s;
+      height: 100%;
     }
     .card:hover { border-color: var(--accent); transform: translateY(-4px); background: rgba(59,130,246,0.02); }
 
@@ -152,8 +156,12 @@
       font-size: 0.85rem;
       overflow-x: auto;
       white-space: pre-wrap;
+      word-break: break-word;
       color: #c0c0c0;
       border-radius: 0 0.5rem 0.5rem 0;
+      max-width: 100%;
+      tab-size: 2;
+      line-height: 1.6;
     }
 
     .fade-up { opacity: 0; transform: translateY(30px); transition: all 0.7s cubic-bezier(0.2, 0.9, 0.4, 1); }
@@ -162,28 +170,34 @@
     .logo-box {
       display: inline-flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
       background: #0c0c0c;
       border: 2px solid var(--accent);
-      padding: 0.5rem 1.5rem 0.5rem 1rem;
+      padding: 0.4rem 1rem 0.4rem 0.75rem;
       border-radius: 0.25rem;
       box-shadow: 0 0 20px var(--accent-glow);
+      flex-wrap: nowrap;
     }
-    .logo-box img { width: 48px; height: 48px; display: block; }
+    .logo-box img {
+      width: 42px;
+      height: 42px;
+      display: block;
+      flex-shrink: 0;
+    }
     .logo-box .text {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 2.5rem;
+      font-size: 2rem;
       font-weight: 700;
       color: var(--accent);
-      letter-spacing: 0.1em;
-      line-height: 1;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
     }
     .logo-box .text small {
-      font-size: 0.7rem;
+      font-size: 0.6rem;
       color: #5A627A;
       display: block;
       letter-spacing: 0.2em;
-      margin-top: 0.1rem;
+      margin-top: 0.05rem;
     }
 
     .badge-term {
@@ -206,6 +220,7 @@
       font-family: monospace;
       border-radius: 999px;
       transition: all 0.2s;
+      white-space: nowrap;
     }
     .skill-tag:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -234,9 +249,87 @@
       animation: pulse 2s ease-in-out infinite;
     }
     @keyframes pulse {
-      0% { transform: scale(1); opacity: 0.2; }
-      50% { transform: scale(1.1); opacity: 0.4; }
-      100% { transform: scale(1); opacity: 0.2; }
+      0% { transform: scale(1); opacity: 0.15; }
+      50% { transform: scale(1.1); opacity: 0.35; }
+      100% { transform: scale(1); opacity: 0.15; }
+    }
+
+    /* ===== MOBILE‑FIRST TWEAKS ===== */
+    @media (max-width: 480px) {
+      .logo-box {
+        padding: 0.3rem 0.7rem 0.3rem 0.5rem;
+        gap: 0.5rem;
+      }
+      .logo-box img {
+        width: 32px;
+        height: 32px;
+      }
+      .logo-box .text {
+        font-size: 1.5rem;
+        letter-spacing: 0.05em;
+      }
+      .logo-box .text small {
+        font-size: 0.5rem;
+      }
+
+      .btn-term {
+        font-size: 0.7rem;
+        padding: 0.5rem 0.9rem;
+        min-height: 44px;
+        gap: 0.35rem;
+      }
+      .btn-term::before { content: ">"; margin-right: 2px; }
+
+      .card {
+        padding: 1rem;
+      }
+
+      .code-box {
+        font-size: 0.75rem;
+        padding: 0.75rem;
+      }
+
+      /* Hero image size */
+      .hero-img-wrap img {
+        width: 120px;
+        height: 120px;
+      }
+      .hero-img-wrap .pulse-ring {
+        width: 160px;
+        height: 160px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .logo-box .text {
+        font-size: 1.2rem;
+      }
+      .logo-box img {
+        width: 28px;
+        height: 28px;
+      }
+      .btn-term {
+        font-size: 0.6rem;
+        padding: 0.4rem 0.7rem;
+        min-height: 40px;
+      }
+      .hero-img-wrap img {
+        width: 90px;
+        height: 90px;
+      }
+      .hero-img-wrap .pulse-ring {
+        width: 130px;
+        height: 130px;
+      }
+    }
+
+    /* Reduce motion if user prefers */
+    @media (prefers-reduced-motion: reduce) {
+      .fade-up { opacity: 1; transform: none; transition: none; }
+      .marquee-track { animation: none; }
+      .pulse-ring { animation: none; }
+      .btn-term:hover { transform: none; }
+      .card:hover { transform: none; }
     }
   </style>
 </head>
@@ -248,41 +341,41 @@
   <main class="relative z-10">
 
     <!-- HERO -->
-    <section class="min-h-screen flex items-center justify-center px-6 py-20">
+    <section class="min-h-screen flex items-center justify-center px-4 py-12 sm:px-6 sm:py-20">
       <div class="max-w-6xl mx-auto w-full">
-        <div class="flex flex-col md:flex-row items-center gap-12">
+        <div class="flex flex-col md:flex-row items-center gap-8 md:gap-12">
           <div class="flex-1 text-center md:text-left">
             <div class="fade-up">
-              <div class="logo-box">
-                <img src="/Pytml/android-chrome-192x192.png" alt="Pytml logo" width="48" height="48">
+              <div class="logo-box mx-auto md:mx-0">
+                <img src="/Pytml/android-chrome-192x192.png" alt="Pytml logo" width="42" height="42">
                 <div class="text">
                   PYTML
                   <small>python → html</small>
                 </div>
               </div>
             </div>
-            <div class="fade-up mt-4">
-              <h1 class="text-xl md:text-2xl text-gray-300 mono">$> Run Python in your browser – no backend, no bullshit</h1>
+            <div class="fade-up mt-3 md:mt-4">
+              <h1 class="text-lg sm:text-xl md:text-2xl text-gray-300 mono">$> Run Python in your browser – no backend, no bullshit</h1>
             </div>
-            <div class="fade-up mt-4">
-              <p class="text-gray-400 max-w-lg mx-auto md:mx-0 leading-relaxed">
+            <div class="fade-up mt-3">
+              <p class="text-gray-400 max-w-lg mx-auto md:mx-0 leading-relaxed text-sm sm:text-base">
                 A zero‑config <strong>JavaScript library</strong> that lets you embed <strong>Python code</strong> directly in your <strong>HTML</strong>.
                 Handles <code class="text-accent">print()</code>, <code class="text-accent">input()</code>, and errors – live, in the browser.
               </p>
             </div>
-            <div class="fade-up mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
+            <div class="fade-up mt-5 flex flex-wrap gap-3 justify-center md:justify-start">
               <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-play"></i> Live Demo</a>
               <a href="#code" class="btn-term"><i class="fas fa-code"></i> See Code</a>
               <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub</a>
             </div>
-            <div class="fade-up mt-5">
+            <div class="fade-up mt-4">
               <span class="badge-term"><i class="fas fa-check-circle mr-1"></i> Submitted to NITI Frontier Tech</span>
             </div>
           </div>
-          <div class="flex-1 flex justify-center">
-            <div class="relative w-60 h-60 md:w-72 md:h-72 flex items-center justify-center">
+          <div class="flex-1 flex justify-center hero-img-wrap">
+            <div class="relative w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 flex items-center justify-center">
               <div class="absolute inset-0 rounded-full border border-[var(--accent)] opacity-20 pulse-ring"></div>
-              <img src="/Pytml/android-chrome-192x192.png" alt="Pytml – Python in the browser" class="w-40 h-40 md:w-56 md:h-56 object-contain" style="filter: drop-shadow(0 0 30px rgba(59,130,246,0.2));">
+              <img src="/Pytml/android-chrome-192x192.png" alt="Pytml – Python in the browser" class="w-32 h-32 sm:w-40 sm:h-40 md:w-56 md:h-56 object-contain" style="filter: drop-shadow(0 0 30px rgba(59,130,246,0.2));">
             </div>
           </div>
         </div>
@@ -290,20 +383,20 @@
     </section>
 
     <!-- WHAT IS PYTML? -->
-    <section class="py-20 px-6 border-t border-white/5">
+    <section class="py-16 sm:py-20 px-4 sm:px-6 border-t border-white/5">
       <div class="max-w-5xl mx-auto">
         <div class="fade-up text-center">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">//</span> The Lazy Bridge</h2>
+          <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">//</span> The Lazy Bridge</h2>
         </div>
-        <div class="grid md:grid-cols-2 gap-8 mt-8">
-          <div class="fade-up space-y-4 text-gray-300 leading-relaxed">
+        <div class="grid sm:grid-cols-2 gap-6 sm:gap-8 mt-8">
+          <div class="fade-up space-y-4 text-gray-300 leading-relaxed text-sm sm:text-base">
             <p><strong>Pytml</strong> is a minimal <strong>JavaScript library</strong> that lets you write <span class="text-accent font-bold">Python inside your HTML</span> – no server, no setup.</p>
             <p>It wraps <span class="text-accent">Pyodide</span> (Python compiled to <strong>WebAssembly</strong>) and automatically redirects <code class="text-accent">print()</code> to a nice terminal box, and turns <code class="text-accent">input()</code> into a live form.</p>
             <p>Built by <span class="text-accent">Aswanth R (NodeX‑AR)</span> – a Class 12 student who wanted a lazy way to show <strong>Python projects</strong> live on the web.</p>
           </div>
           <div class="fade-up card">
-            <h3 class="text-lg font-bold font-heading mb-2">Why it exists</h3>
-            <ul class="space-y-2 text-gray-400 text-sm mono">
+            <h3 class="text-base sm:text-lg font-bold font-heading mb-2">Why it exists</h3>
+            <ul class="space-y-2 text-gray-400 text-xs sm:text-sm mono">
               <li><span class="text-accent">➜</span> No Flask, no Django, no server</li>
               <li><span class="text-accent">➜</span> Just <span class="text-white">&lt;py&gt;code&lt;/py&gt;</span></li>
               <li><span class="text-accent">➜</span> Works offline after first load</li>
@@ -315,13 +408,13 @@
     </section>
 
     <!-- HOW IT WORKS -->
-    <section id="code" class="py-20 px-6 border-t border-white/5">
+    <section id="code" class="py-16 sm:py-20 px-4 sm:px-6 border-t border-white/5">
       <div class="max-w-5xl mx-auto">
         <div class="fade-up text-center">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-6"><span class="text-accent">#</span> How It Works</h2>
+          <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-6"><span class="text-accent">#</span> How It Works</h2>
         </div>
-        <div class="grid md:grid-cols-2 gap-8">
-          <div class="fade-up space-y-4 text-gray-300 leading-relaxed mono text-sm">
+        <div class="grid sm:grid-cols-2 gap-6 sm:gap-8">
+          <div class="fade-up space-y-3 text-gray-300 leading-relaxed mono text-xs sm:text-sm">
             <div class="flex gap-3"><span class="text-accent font-bold">1.</span> Loads <strong>Pyodide</strong> (WebAssembly) from CDN</div>
             <div class="flex gap-3"><span class="text-accent font-bold">2.</span> Overrides <code>print()</code> and <code>input()</code></div>
             <div class="flex gap-3"><span class="text-accent font-bold">3.</span> Finds all <code>py script</code> or <code>&lt;script type="text/python"&gt;</code> tags</div>
@@ -347,13 +440,13 @@ print(f"Hi {name}!")
       </div>
     </section>
 
-    <!-- FEATURES -->
-    <section class="py-20 px-6 border-t border-white/5">
+    <!-- FEATURES – now 1 col on tiny, 2 on small, 4 on desktop -->
+    <section class="py-16 sm:py-20 px-4 sm:px-6 border-t border-white/5">
       <div class="max-w-6xl mx-auto">
         <div class="fade-up text-center">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-6"><span class="text-accent">⚡</span> Features</h2>
+          <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-6"><span class="text-accent">⚡</span> Features</h2>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div class="fade-up card text-center"><i class="fas fa-bolt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Zero config</p><p class="text-xs text-gray-500">Just a script tag</p></div>
           <div class="fade-up card text-center"><i class="fas fa-terminal text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Real I/O</p><p class="text-xs text-gray-500">print() and input() work</p></div>
           <div class="fade-up card text-center"><i class="fas fa-mobile-alt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Any device</p><p class="text-xs text-gray-500">Works on phones too</p></div>
@@ -363,10 +456,10 @@ print(f"Hi {name}!")
     </section>
 
     <!-- TECH STACK MARQUEE -->
-    <section class="py-16 px-6 border-t border-white/5">
+    <section class="py-12 sm:py-16 px-4 sm:px-6 border-t border-white/5">
       <div class="max-w-6xl mx-auto">
         <div class="fade-up text-center">
-          <h2 class="text-2xl font-bold font-heading mb-4"><span class="text-accent">🧩</span> Built With</h2>
+          <h2 class="text-xl sm:text-2xl font-bold font-heading mb-4"><span class="text-accent">🧩</span> Built With</h2>
         </div>
         <div class="marquee">
           <div class="marquee-track">
@@ -397,21 +490,21 @@ print(f"Hi {name}!")
     </section>
 
     <!-- LIVE DEMO / LINKS -->
-    <section id="demo" class="py-20 px-6 border-t border-white/5">
+    <section id="demo" class="py-16 sm:py-20 px-4 sm:px-6 border-t border-white/5">
       <div class="max-w-4xl mx-auto text-center">
         <div class="fade-up">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">[</span> Try It <span class="text-accent">]</span></h2>
+          <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">[</span> Try It <span class="text-accent">]</span></h2>
         </div>
         <div class="fade-up">
-          <p class="text-gray-300 max-w-xl mx-auto mb-8">See Pytml in action – run <strong>Python code</strong> live in your browser.</p>
+          <p class="text-gray-300 max-w-xl mx-auto mb-6 sm:mb-8 text-sm sm:text-base">See Pytml in action – run <strong>Python code</strong> live in your browser.</p>
         </div>
-        <div class="fade-up flex flex-wrap justify-center gap-5">
+        <div class="fade-up flex flex-wrap justify-center gap-3 sm:gap-5">
           <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-globe"></i> Live Demo</a>
           <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub Repo</a>
           <a href="https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4" target="_blank" class="btn-term"><i class="fas fa-pen"></i> DEV Article</a>
           <a href="https://devpost.com/software/pytml" target="_blank" class="btn-term"><i class="fas fa-trophy"></i> Devpost</a>
         </div>
-        <div class="fade-up mt-10 text-sm text-gray-500 mono">
+        <div class="fade-up mt-8 sm:mt-10 text-xs sm:text-sm text-gray-500 mono">
           Made with <span class="text-accent">&lt;3</span> by 
           <a href="https://a-r.is-a.dev" target="_blank" class="text-accent hover:underline">Aswanth R (NodeX-AR)</a>
         </div>
@@ -420,7 +513,7 @@ print(f"Hi {name}!")
   </main>
 
   <!-- FOOTER -->
-  <footer class="py-8 px-6 border-t border-white/5 text-center text-xs text-gray-600">
+  <footer class="py-6 sm:py-8 px-4 sm:px-6 border-t border-white/5 text-center text-xs text-gray-600">
     <p>
       <a href="https://a-r.is-a.dev" target="_blank" class="footer-link">Aswanth R (NodeX-AR)</a> &nbsp;·&nbsp; 
       <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="footer-link">GitHub</a> &nbsp;·&nbsp; 
