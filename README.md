@@ -26,18 +26,3 @@ name = input("Enter your name: ")
 age = input("Enter your age: ")
 print(f"Hello {name}, you are {age} years old!")
 ```
-# CSS
-Class Name	Purpose
-.pytml-output	Main output container
-.pytml-input-container	Input form wrapper
-.pytml-prompt	Input prompt text
-.pytml-input	Text input field
-.pytml-submit	Submit button
-.pytml-line	Regular output line
-.pytml-user-input	User input display
-.pytml-error	Error messages
-.pytml-success	Success messages
-.pytml-border	Border or separator lines
-.pytml-status	Status message
-.pytml-status-error	Error status
-.pytml-status-hidden	Hidden status
