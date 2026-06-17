@@ -7,8 +7,12 @@
   <!-- ========== PRIMARY SEO ========== -->
   <title>Pytml – Run Python in the Browser | Zero‑Config JavaScript Library</title>
   <meta name="description" content="Pytml is a zero‑configuration JavaScript library that lets you embed and run Python code directly in your HTML. No backend, no server – just Python in your browser.">
+  <meta name="keywords" content="Pytml, run python in browser, python html bridge, pyodide, webassembly python, zero config python, python web development, javascript library, python in html, educational coding tool, open source python, nodex-ar">
   <meta name="robots" content="index, follow">
+  <meta name="author" content="Aswanth R (NodeX-AR)">
   <link rel="canonical" href="https://pytml.vercel.app/">
+
+  <!-- ========== FAVICON (all sizes) ========== -->
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
   <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32">
@@ -17,25 +21,27 @@
   <link rel="icon" type="image/png" href="/android-chrome-192x192.png" sizes="192x192">
   <link rel="icon" type="image/png" href="/android-chrome-512x512.png" sizes="512x512">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#3b82f6">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
   <!-- ========== OPEN GRAPH ========== -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Pytml – Run Python in the Browser">
-  <meta property="og:description" content="Zero‑configuration Python in your HTML – run Python code live in any browser without a backend.">
+  <meta property="og:title" content="Pytml – Run Python in the Browser | Zero‑Config Library">
+  <meta property="og:description" content="Run Python code directly in your HTML – no server, no setup, just a script tag.">
   <meta property="og:url" content="https://pytml.vercel.app/">
   <meta property="og:image" content="https://a-r.is-a.dev/social-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
   <meta property="og:site_name" content="NodeX-AR">
   <meta property="og:locale" content="en_US">
-  
 
   <!-- ========== TWITTER CARD ========== -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Pytml – Run Python in the Browser">
-  <meta name="twitter:description" content="Run Python code directly in your HTML – no server, no setup, just a script tag.">
-  <meta name="twitter:image" content="https://a-r.is-a.dev/aswanth-r-nodex-ar.png">
+  <meta name="twitter:description" content="Zero‑configuration Python in your HTML – run Python code live in any browser without a backend.">
+  <meta name="twitter:image" content="https://a-r.is-a.dev/social-preview.png">
 
-  <!-- ========== SCHEMA.ORG (JSON-LD) ========== -->
+  <!-- ========== SCHEMA.ORG JSON-LD ========== -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -68,24 +74,20 @@
   }
   </script>
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-
-  <!-- ========== STYLES & LIBRARIES ========== -->
+  <!-- ========== STYLES ========== -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
 
   <style>
-    /* ----- Custom styles – same dark‑hacker theme ----- */
     :root {
       --bg: #050505;
-      --accent: #00ff41;
+      --accent: #3b82f6;
+      --accent-dark: #2563eb;
+      --accent-glow: rgba(59, 130, 246, 0.2);
       --border: rgba(255,255,255,0.08);
       --text: #e5e5e5;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: var(--bg);
       color: var(--text);
@@ -94,6 +96,8 @@
     }
     h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
     .mono { font-family: 'JetBrains Mono', monospace; }
+    .text-accent { color: var(--accent); }
+    .border-accent { border-color: var(--accent); }
 
     .bg-noise {
       position: fixed;
@@ -102,69 +106,6 @@
       z-index: 9998;
       opacity: 0.03;
       background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3C/svg%3E");
-    }
-    #particles {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: -1;
-      opacity: 0.3;
-      pointer-events: none;
-    }
-    .grid-bg {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: -2;
-      pointer-events: none;
-      overflow: hidden;
-    }
-    .grid-dots {
-      display: grid;
-      gap: 16px;
-      width: 100%;
-      max-width: 750px;
-      transform: rotateX(45deg) rotateZ(45deg);
-      opacity: 0.15;
-    }
-    .grid-dots .dot {
-      aspect-ratio: 1;
-      background: #27272a;
-      border-radius: 4px;
-    }
-    @media (max-width: 768px) {
-      .grid-dots { gap: 8px; transform: rotateX(45deg) rotateZ(45deg) scale(0.8); }
-      .grid-dots .dot { border-radius: 2px; }
-    }
-
-    .cursor {
-      position: fixed;
-      width: 10px; height: 10px;
-      background: var(--accent);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 99999;
-      transform: translate(-50%, -50%);
-      mix-blend-mode: difference;
-      transition: width 0.2s, height 0.2s;
-    }
-    .cursor.hover { width: 24px; height: 24px; background: #fff; mix-blend-mode: normal; }
-    @media (max-width: 768px), (hover: none) { .cursor { display: none; } body, body * { cursor: auto !important; } }
-
-    .ripple {
-      position: fixed;
-      width: 6px; height: 6px;
-      border: 1px solid var(--accent);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 9998;
-      animation: rippleAnim 0.4s ease-out forwards;
-    }
-    @keyframes rippleAnim {
-      0% { width: 0; height: 0; opacity: 1; }
-      100% { width: 40px; height: 40px; opacity: 0; }
     }
 
     .btn-term {
@@ -183,14 +124,6 @@
     }
     .btn-term::before { content: ">"; margin-right: 4px; color: var(--accent); }
     .btn-term:hover { background: var(--accent); color: #050505; border-color: var(--accent); transform: translateX(4px); }
-    .btn-term:hover::before { color: #050505; }
-
-    .fade-up {
-      opacity: 0;
-      transform: translateY(30px);
-      transition: all 0.7s cubic-bezier(0.2, 0.9, 0.4, 1);
-    }
-    .fade-up.visible { opacity: 1; transform: translateY(0); }
 
     .card {
       background: rgba(8,8,8,0.7);
@@ -200,7 +133,7 @@
       padding: 1.5rem;
       transition: border 0.25s, transform 0.25s;
     }
-    .card:hover { border-color: var(--accent); transform: translateY(-4px); background: rgba(0,255,65,0.02); }
+    .card:hover { border-color: var(--accent); transform: translateY(-4px); background: rgba(59,130,246,0.02); }
 
     .code-box {
       background: #0b0b0b;
@@ -214,31 +147,61 @@
       border-radius: 0 0.5rem 0.5rem 0;
     }
 
-    #scroll-progress {
-      position: fixed;
-      top: 0; left: 0;
-      height: 2px;
-      background: var(--accent);
-      width: 0%;
-      z-index: 1000;
-    }
-    #back-top {
-      position: fixed;
-      bottom: 1.8rem; right: 1.8rem;
-      width: 38px; height: 38px;
-      background: #0f0f0f;
-      border: 1px solid #2a2a2a;
-      display: flex;
+    .fade-up { opacity: 0; transform: translateY(30px); transition: all 0.7s cubic-bezier(0.2, 0.9, 0.4, 1); }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+    .logo-box {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      color: #aaa;
-      z-index: 50;
-      transition: 0.2s;
-      cursor: pointer;
-      opacity: 0; visibility: hidden;
+      gap: 1rem;
+      background: #0c0c0c;
+      border: 2px solid var(--accent);
+      padding: 0.5rem 1.5rem 0.5rem 1rem;
+      border-radius: 0.25rem;
+      box-shadow: 0 0 20px var(--accent-glow);
     }
-    #back-top.visible { opacity: 1; visibility: visible; }
-    #back-top:hover { background: var(--accent); color: black; border-color: var(--accent); }
+    .logo-box img { width: 48px; height: 48px; display: block; }
+    .logo-box .text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      line-height: 1;
+    }
+    .logo-box .text small {
+      font-size: 0.7rem;
+      color: #5A627A;
+      display: block;
+      letter-spacing: 0.2em;
+      margin-top: 0.1rem;
+    }
+
+    .badge-term {
+      display: inline-block;
+      background: #0c0c0c;
+      border: 1px solid #27272a;
+      padding: 0.2rem 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text);
+      border-radius: 999px;
+    }
+    .badge-term i { color: var(--accent); }
+
+    .skill-tag {
+      background: #0f0f0f;
+      border: 1px solid #262626;
+      padding: 0.25rem 0.8rem;
+      font-size: 0.75rem;
+      font-family: monospace;
+      border-radius: 999px;
+      transition: all 0.2s;
+    }
+    .skill-tag:hover { border-color: var(--accent); color: var(--accent); }
+
+    .footer-link { color: #5A627A; text-decoration: none; transition: color 0.2s; }
+    .footer-link:hover { color: var(--accent); text-decoration: underline; }
 
     .marquee {
       overflow: hidden;
@@ -253,98 +216,64 @@
     }
     @keyframes marqueeScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
-    .skill-tag {
-      background: #0f0f0f;
-      border: 1px solid #262626;
-      padding: 0.25rem 0.8rem;
-      font-size: 0.75rem;
-      font-family: monospace;
-      border-radius: 999px;
-    }
-    .skill-tag:hover { border-color: var(--accent); color: var(--accent); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #1f1f1f; border-radius: 0; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-    .footer-link { color: #5A627A; text-decoration: none; }
-    .footer-link:hover { color: var(--accent); text-decoration: underline; }
-
-    /* ===== LOGO PLACEHOLDER (text‑based) ===== */
-    .logo-box {
-      display: inline-block;
-      background: #0c0c0c;
-      border: 2px solid var(--accent);
-      padding: 0.5rem 1.2rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 2.5rem;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: 0.1em;
-      border-radius: 0.25rem;
-      box-shadow: 0 0 20px rgba(0,255,65,0.1);
+    .pulse-ring {
+      animation: pulse 2s ease-in-out infinite;
     }
-    .logo-box small {
-      font-size: 0.7rem;
-      color: #5A627A;
-      display: block;
-      margin-top: 0.1rem;
-      letter-spacing: 0.2em;
-    }
-    .badge-term {
-      display: inline-block;
-      background: #0c0c0c;
-      border: 1px solid #27272a;
-      padding: 0.2rem 0.8rem;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--text);
-      border-radius: 999px;
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.2; }
+      50% { transform: scale(1.1); opacity: 0.4; }
+      100% { transform: scale(1); opacity: 0.2; }
     }
   </style>
 </head>
 <body>
-  <div id="scroll-progress"></div>
-  <div class="cursor"></div>
+
   <div class="bg-noise"></div>
-  <canvas id="particles"></canvas>
-  <div class="grid-bg"><div class="grid-dots" id="gridDots"></div></div>
-  <div id="back-top"><i class="fas fa-arrow-up"></i></div>
 
   <!-- ===== MAIN CONTENT ===== -->
-  <main>
-    <!-- HERO (logo‑free, text‑based) -->
+  <main class="relative z-10">
+
+    <!-- HERO -->
     <section class="min-h-screen flex items-center justify-center px-6 py-20">
       <div class="max-w-6xl mx-auto w-full">
         <div class="flex flex-col md:flex-row items-center gap-12">
           <div class="flex-1 text-center md:text-left">
             <div class="fade-up">
               <div class="logo-box">
-                PYTML
-                <small>python → html</small>
+                <img src="/android-chrome-192x192.png" alt="Pytml logo" width="48" height="48">
+                <div class="text">
+                  PYTML
+                  <small>python → html</small>
+                </div>
               </div>
             </div>
             <div class="fade-up mt-4">
-              <p class="text-xl md:text-2xl text-gray-300 mono">$> Run Python in your browser – no backend, no bullshit</p>
+              <h1 class="text-xl md:text-2xl text-gray-300 mono">$> Run Python in your browser – no backend, no bullshit</h1>
             </div>
             <div class="fade-up mt-4">
               <p class="text-gray-400 max-w-lg mx-auto md:mx-0 leading-relaxed">
-                A zero‑config JavaScript library that lets you embed Python code directly in your HTML.
-                Handles <code class="text-[var(--accent)]">print()</code>, <code class="text-[var(--accent)]">input()</code>, and errors – live, in the browser.
+                A zero‑config <strong>JavaScript library</strong> that lets you embed <strong>Python code</strong> directly in your <strong>HTML</strong>.
+                Handles <code class="text-accent">print()</code>, <code class="text-accent">input()</code>, and errors – live, in the browser.
               </p>
             </div>
-            <div class="fade-up mt-6 flex flex-wrap gap-3 justify-center md:justify-start">
-              <a href="#demo" class="btn-term"><i class="fas fa-play"></i> Live Demo</a>
+            <div class="fade-up mt-6 flex flex-wrap gap-4 justify-center md:justify-start">
+              <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-play"></i> Live Demo</a>
               <a href="#code" class="btn-term"><i class="fas fa-code"></i> See Code</a>
               <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub</a>
             </div>
             <div class="fade-up mt-5">
-              <span class="badge-term"><i class="fas fa-check-circle text-[var(--accent)] mr-1"></i> Submitted to NITI Frontier Tech</span>
+              <span class="badge-term"><i class="fas fa-check-circle mr-1"></i> Submitted to NITI Frontier Tech</span>
             </div>
           </div>
           <div class="flex-1 flex justify-center">
             <div class="relative w-60 h-60 md:w-72 md:h-72 flex items-center justify-center">
-              <div class="absolute inset-0 rounded-full border border-[var(--accent)] opacity-20 animate-ping"></div>
-              <div class="text-center">
-                <div class="text-7xl font-bold text-[var(--accent)] mono">&lt;/&gt;</div>
-                <div class="mt-2 text-xs text-gray-500 mono">Python in the browser</div>
-              </div>
+              <div class="absolute inset-0 rounded-full border border-[var(--accent)] opacity-20 pulse-ring"></div>
+              <img src="/android-chrome-512x512.png" alt="Pytml – Python in the browser" class="w-40 h-40 md:w-56 md:h-56 object-contain" style="filter: drop-shadow(0 0 30px rgba(59,130,246,0.2));">
             </div>
           </div>
         </div>
@@ -354,22 +283,22 @@
     <!-- WHAT IS PYTML? -->
     <section class="py-20 px-6 border-t border-white/5">
       <div class="max-w-5xl mx-auto">
-        <div class="fade-up">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-3 text-center"><span class="text-[var(--accent)]">//</span> The Lazy Bridge</h2>
+        <div class="fade-up text-center">
+          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">//</span> The Lazy Bridge</h2>
         </div>
         <div class="grid md:grid-cols-2 gap-8 mt-8">
           <div class="fade-up space-y-4 text-gray-300 leading-relaxed">
-            <p>Pytml is a minimal JavaScript library that lets you write <span class="text-[var(--accent)] font-bold">Python inside your HTML</span> – no server, no setup.</p>
-            <p>It wraps <span class="text-[var(--accent)]">Pyodide</span> (Python compiled to WebAssembly) and automatically redirects <code class="text-[var(--accent)]">print()</code> to a nice terminal box, and turns <code class="text-[var(--accent)]">input()</code> into a live form.</p>
-            <p>Built by <span class="text-[var(--accent)]">Aswanth R (NodeX‑AR)</span> – a Class 12 student who wanted a lazy way to show Python projects live on the web.</p>
+            <p><strong>Pytml</strong> is a minimal <strong>JavaScript library</strong> that lets you write <span class="text-accent font-bold">Python inside your HTML</span> – no server, no setup.</p>
+            <p>It wraps <span class="text-accent">Pyodide</span> (Python compiled to <strong>WebAssembly</strong>) and automatically redirects <code class="text-accent">print()</code> to a nice terminal box, and turns <code class="text-accent">input()</code> into a live form.</p>
+            <p>Built by <span class="text-accent">Aswanth R (NodeX‑AR)</span> – a Class 12 student who wanted a lazy way to show <strong>Python projects</strong> live on the web.</p>
           </div>
           <div class="fade-up card">
             <h3 class="text-lg font-bold font-heading mb-2">Why it exists</h3>
             <ul class="space-y-2 text-gray-400 text-sm mono">
-              <li><span class="text-[var(--accent)]">➜</span> No Flask, no Django, no server</li>
-              <li><span class="text-[var(--accent)]">➜</span> Just <span class="text-white">&lt;py&gt;code&lt;/py&gt;</span></li>
-              <li><span class="text-[var(--accent)]">➜</span> Works offline after first load</li>
-              <li><span class="text-[var(--accent)]">➜</span> Less than 15KB of JS</li>
+              <li><span class="text-accent">➜</span> No Flask, no Django, no server</li>
+              <li><span class="text-accent">➜</span> Just <span class="text-white">&lt;py&gt;code&lt;/py&gt;</span></li>
+              <li><span class="text-accent">➜</span> Works offline after first load</li>
+              <li><span class="text-accent">➜</span> Less than 15KB of JS</li>
             </ul>
           </div>
         </div>
@@ -379,22 +308,22 @@
     <!-- HOW IT WORKS -->
     <section id="code" class="py-20 px-6 border-t border-white/5">
       <div class="max-w-5xl mx-auto">
-        <div class="fade-up">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-6 text-center"><span class="text-[var(--accent)]">#</span> How It Works</h2>
+        <div class="fade-up text-center">
+          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-6"><span class="text-accent">#</span> How It Works</h2>
         </div>
         <div class="grid md:grid-cols-2 gap-8">
           <div class="fade-up space-y-4 text-gray-300 leading-relaxed mono text-sm">
-            <div class="flex gap-3"><span class="text-[var(--accent)] font-bold">1.</span> Loads Pyodide (WebAssembly) from CDN</div>
-            <div class="flex gap-3"><span class="text-[var(--accent)] font-bold">2.</span> Overrides <code>print()</code> and <code>input()</code></div>
-            <div class="flex gap-3"><span class="text-[var(--accent)] font-bold">3.</span> Finds all <code>&lt;py&gt;</code> or <code>&lt;script type="text/python"&gt;</code> tags</div>
-            <div class="flex gap-3"><span class="text-[var(--accent)] font-bold">4.</span> Runs Python, catches output and errors</div>
-            <div class="flex gap-3"><span class="text-[var(--accent)] font-bold">5.</span> Displays everything in a styled terminal</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">1.</span> Loads <strong>Pyodide</strong> (WebAssembly) from CDN</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">2.</span> Overrides <code>print()</code> and <code>input()</code></div>
+            <div class="flex gap-3"><span class="text-accent font-bold">3.</span> Finds all <code>py script</code> or <code>&lt;script type="text/python"&gt;</code> tags</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">4.</span> Runs Python, catches output and errors</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">5.</span> Displays everything in a styled terminal</div>
           </div>
           <div class="fade-up code-box">
 &lt;!DOCTYPE html&gt;
 &lt;html&gt;
   &lt;head&gt;
-    &lt;script src="pytml.js"&gt;&lt;/script&gt;
+    &lt;script src="https://pytml.vercel.app/pytml.js"&gt;&lt;/script&gt;
   &lt;/head&gt;
   &lt;body&gt;
     &lt;py&gt;
@@ -409,33 +338,17 @@ print(f"Hi {name}!")
       </div>
     </section>
 
-    <!-- FEATURES (grid cards) -->
+    <!-- FEATURES -->
     <section class="py-20 px-6 border-t border-white/5">
       <div class="max-w-6xl mx-auto">
-        <div class="fade-up">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-6 text-center"><span class="text-[var(--accent)]">⚡</span> Features</h2>
+        <div class="fade-up text-center">
+          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-6"><span class="text-accent">⚡</span> Features</h2>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="fade-up card text-center">
-            <i class="fas fa-bolt text-[var(--accent)] text-2xl mb-2"></i>
-            <p class="text-sm font-semibold">Zero config</p>
-            <p class="text-xs text-gray-500">Just a script tag</p>
-          </div>
-          <div class="fade-up card text-center">
-            <i class="fas fa-terminal text-[var(--accent)] text-2xl mb-2"></i>
-            <p class="text-sm font-semibold">Real I/O</p>
-            <p class="text-xs text-gray-500">print() and input() work</p>
-          </div>
-          <div class="fade-up card text-center">
-            <i class="fas fa-mobile-alt text-[var(--accent)] text-2xl mb-2"></i>
-            <p class="text-sm font-semibold">Any device</p>
-            <p class="text-xs text-gray-500">Works on phones too</p>
-          </div>
-          <div class="fade-up card text-center">
-            <i class="fas fa-code text-[var(--accent)] text-2xl mb-2"></i>
-            <p class="text-sm font-semibold">Open source</p>
-            <p class="text-xs text-gray-500">Apache 2.0 license</p>
-          </div>
+          <div class="fade-up card text-center"><i class="fas fa-bolt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Zero config</p><p class="text-xs text-gray-500">Just a script tag</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-terminal text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Real I/O</p><p class="text-xs text-gray-500">print() and input() work</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-mobile-alt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Any device</p><p class="text-xs text-gray-500">Works on phones too</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-code text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Open source</p><p class="text-xs text-gray-500">Apache 2.0</p></div>
         </div>
       </div>
     </section>
@@ -443,8 +356,8 @@ print(f"Hi {name}!")
     <!-- TECH STACK MARQUEE -->
     <section class="py-16 px-6 border-t border-white/5">
       <div class="max-w-6xl mx-auto">
-        <div class="fade-up">
-          <h2 class="text-2xl font-bold font-heading text-center mb-4"><span class="text-[var(--accent)]">🧩</span> Built With</h2>
+        <div class="fade-up text-center">
+          <h2 class="text-2xl font-bold font-heading mb-4"><span class="text-accent">🧩</span> Built With</h2>
         </div>
         <div class="marquee">
           <div class="marquee-track">
@@ -458,7 +371,6 @@ print(f"Hi {name}!")
             <span class="skill-tag"><i class="fab fa-github"></i> GitHub</span>
             <span class="skill-tag"><i class="fas fa-cloud"></i> Vercel</span>
             <span class="skill-tag"><i class="fas fa-shield-alt"></i> Apache 2.0</span>
-            <!-- duplicate for seamless loop -->
             <span class="skill-tag"><i class="fab fa-python"></i> Python</span>
             <span class="skill-tag"><i class="fab fa-js"></i> JavaScript</span>
             <span class="skill-tag"><i class="fas fa-globe"></i> WebAssembly</span>
@@ -478,129 +390,47 @@ print(f"Hi {name}!")
     <section id="demo" class="py-20 px-6 border-t border-white/5">
       <div class="max-w-4xl mx-auto text-center">
         <div class="fade-up">
-          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-[var(--accent)]">[</span> Try It <span class="text-[var(--accent)]">]</span></h2>
+          <h2 class="text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">[</span> Try It <span class="text-accent">]</span></h2>
         </div>
         <div class="fade-up">
-          <p class="text-gray-300 max-w-xl mx-auto mb-8">See Pytml in action – run Python code live in your browser.</p>
+          <p class="text-gray-300 max-w-xl mx-auto mb-8">See Pytml in action – run <strong>Python code</strong> live in your browser.</p>
         </div>
         <div class="fade-up flex flex-wrap justify-center gap-5">
-          <a href="https://pytml.vercel.app/demo" target="_blank" class="btn-term"><i class="fas fa-globe"></i> Live Demo</a>
+          <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-globe"></i> Live Demo</a>
           <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub Repo</a>
           <a href="https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4" target="_blank" class="btn-term"><i class="fas fa-pen"></i> DEV Article</a>
           <a href="https://devpost.com/software/pytml" target="_blank" class="btn-term"><i class="fas fa-trophy"></i> Devpost</a>
         </div>
         <div class="fade-up mt-10 text-sm text-gray-500 mono">
-          Made with <span class="text-[var(--accent)]">&lt;3</span> by 
-          <a href="https://a-r.is-a.dev" target="_blank" class="text-[var(--accent)] hover:underline">Aswanth R (NodeX-AR)</a>
+          Made with <span class="text-accent">&lt;3</span> by 
+          <a href="https://a-r.is-a.dev" target="_blank" class="text-accent hover:underline">Aswanth R (NodeX-AR)</a>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- ===== FOOTER ===== -->
+  <!-- FOOTER -->
   <footer class="py-8 px-6 border-t border-white/5 text-center text-xs text-gray-600">
     <p>
       <a href="https://a-r.is-a.dev" target="_blank" class="footer-link">Aswanth R (NodeX-AR)</a> &nbsp;·&nbsp; 
       <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="footer-link">GitHub</a> &nbsp;·&nbsp; 
-      <a href="https://pytml.vercel.app" target="_blank" class="footer-link">Live Demo</a>
+      <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="footer-link">Live Demo</a>
     </p>
     <p class="mt-1 text-gray-700">Open-source under Apache 2.0 &nbsp;·&nbsp; 2026</p>
   </footer>
 
-  <!-- ===== SCRIPTS ===== -->
   <script>
-    // ========== CURSOR ==========
-    const cursor = document.querySelector('.cursor');
-    document.addEventListener('mousemove', e => { cursor.style.left = e.clientX+'px'; cursor.style.top = e.clientY+'px'; });
-    document.querySelectorAll('a, .btn-term, .card').forEach(el => {
-      el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
-      el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
-    });
-    document.addEventListener('click', e => {
-      const rip = document.createElement('div'); rip.className = 'ripple';
-      rip.style.left = e.clientX+'px'; rip.style.top = e.clientY+'px';
-      document.body.appendChild(rip); setTimeout(() => rip.remove(), 400);
-    });
-
-    // ========== PARTICLES ==========
-    const canv = document.getElementById('particles');
-    const ctx = canv.getContext('2d');
-    let particles = [];
-    function resize() { canv.width = window.innerWidth; canv.height = window.innerHeight; }
-    function initP() {
-      particles = [];
-      for(let i=0;i<60;i++) particles.push({
-        x: Math.random()*canv.width, y: Math.random()*canv.height,
-        r: Math.random()*2+0.5, vx: (Math.random()-0.5)*0.2, vy: (Math.random()-0.5)*0.2,
-        o: Math.random()*0.5
-      });
-    }
-    function drawP() {
-      if(!ctx) return;
-      ctx.clearRect(0,0,canv.width,canv.height);
-      particles.forEach(p => {
-        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fillStyle = `rgba(0,255,65,${p.o})`;
-        ctx.fill();
-        p.x += p.vx; p.y += p.vy;
-        if(p.x<0) p.x=canv.width; if(p.x>canv.width) p.x=0;
-        if(p.y<0) p.y=canv.height; if(p.y>canv.height) p.y=0;
-      });
-      requestAnimationFrame(drawP);
-    }
-    window.addEventListener('resize', ()=>{ resize(); initP(); });
-    resize(); initP(); drawP();
-
-    // ========== GRID DOTS ==========
-    function buildGrid() {
-      const container = document.getElementById('gridDots');
-      if (!container) return;
-      container.innerHTML = '';
-      const cols = window.innerWidth < 768 ? 6 : 12;
-      const rows = window.innerWidth < 768 ? 6 : 12;
-      container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-      for (let i=0; i<cols*rows; i++) {
-        const dot = document.createElement('div');
-        dot.classList.add('dot');
-        container.appendChild(dot);
-      }
-      const timeline = anime.timeline({
-        targets: '.grid-dots .dot',
-        easing: 'easeInOutSine',
-        delay: anime.stagger(40),
-        loop: true,
-        autoplay: true
-      });
-      timeline
-        .add({
-          translateX: anime.stagger('-.5rem', { grid: [cols, rows], from: 'center', axis: 'x' }),
-          translateY: anime.stagger('-.5rem', { grid: [cols, rows], from: 'center', axis: 'y' }),
-          duration: 1200, scale: 0.5, backgroundColor: '#00ff41'
-        })
-        .add({
-          translateX: 0, translateY: 0, scale: 1, backgroundColor: '#27272a',
-          duration: 1200, delay: anime.stagger(60, { grid: [cols, rows], from: 'center' })
-        });
-    }
-    buildGrid();
-    let gridTimeout;
-    window.addEventListener('resize', () => { clearTimeout(gridTimeout); gridTimeout = setTimeout(buildGrid, 300); });
-
-    // ========== SCROLL ==========
-    window.addEventListener('scroll', () => {
-      const h = document.documentElement.scrollHeight - window.innerHeight;
-      const s = (window.scrollY / h) * 100;
-      document.getElementById('scroll-progress').style.width = s + '%';
-      const back = document.getElementById('back-top');
-      if (window.scrollY > 500) back.classList.add('visible'); else back.classList.remove('visible');
-    });
-    document.getElementById('back-top').addEventListener('click', () => window.scrollTo({top:0, behavior:'smooth'}));
-
-    // ========== REVEAL ==========
+    // ========== FADE-IN ON SCROLL ==========
     const observer = new IntersectionObserver((entries) => {
       entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
     }, { threshold: 0.1 });
     document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+    // ========== SMOOTH SCROLL ==========
+    document.querySelector('a[href="#code"]')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('code').scrollIntoView({ behavior: 'smooth' });
+    });
   </script>
 </body>
 </html>
