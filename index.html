@@ -44,36 +44,94 @@
 
   <!-- ========== SCHEMA.ORG JSON-LD ========== -->
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Pytml",
-    "alternateName": "Pytml – Python in HTML",
-    "description": "A lightweight JavaScript library that lets you embed and run Python code directly inside a web page using Pyodide, without any backend server.",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "All (Browser)",
-    "browserRequirements": "Requires a modern browser with WebAssembly support.",
-    "softwareVersion": "1.0",
-    "datePublished": "2026-06-04",
-    "author": {
-      "@type": "Person",
-      "name": "Aswanth R",
-      "alternateName": "NodeX-AR",
-      "url": "https://a-r.is-a.dev"
-    },
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "url": "https://pytml.js.org",
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://pytml.js.org/"
+  },
+  "name": "Pytml",
+  "alternateName": "Python in HTML Bridge",
+  "headline": "Run Python in the Browser with Zero Configuration",
+  "description": "Pytml is a lightweight, zero-configuration JavaScript library that embeds Pyodide (Python WebAssembly) directly into your HTML. Write Python logic inside <py> tags and run it live in any modern browser — no backend, no server, no build tools required.",
+  "abstract": "Pytml serves as a seamless bridge between Python and JavaScript, enabling developers to use Python syntax for web frontend logic without context-switching. It is designed for rapid prototyping, educational coding environments, and data scientists who want to visualize Python outputs directly in the browser.",
+  "keywords": [
+    "Python in Browser",
+    "Pyodide",
+    "WebAssembly Python",
+    "JavaScript Library",
+    "HTML Python Bridge",
+    "Aswanth R",
+    "aswanth r",
+    "Ptml",
+    "Educational Coding Tool",
+    "Zero Config Python"
+  ],
+  "applicationCategory": "DeveloperApplication",
+  "applicationSubCategory": "Runtime Environment",
+  "operatingSystem": "All (Cross-platform)",
+  "browserRequirements": "Requires JavaScript enabled and WebAssembly support (Chrome 70+, Firefox 79+, Safari 16.4+, Edge 79+, Opera 60+, and modern mobile browsers).",
+  "softwareVersion": "2.0",
+  "datePublished": "2026-06-04",
+  "dateModified": "2026-06-18",
+  "license": "https://github.com/NodeX-AR/Pytml/blob/main/LICENSE",
+  "url": "https://pytml.js.org/",
+  "image": {
+    "@type": "ImageObject",
+    "url": "https://pytml.js.org/preview.png",
+    "width": 1200,
+    "height": 630
+  },
+  "thumbnailUrl": "https://pytml.js.org/favicon-512x512.png",
+  "screenshot": {
+    "@type": "ImageObject",
+    "url": "https://pytml.js.org/preview.png",
+    "caption": "Pytml demonstration page showcasing Python code execution in a web browser."
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Aswanth R",
+    "alternateName": "NodeX-AR",
+    "url": "https://a-r.is-a.dev/",
     "sameAs": [
-      "https://github.com/NodeX-AR/Pytml",
-      "https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4",
-      "https://devpost.com/software/pytml"
+      "https://github.com/NodeX-AR",
+      "https://dev.to/nodex-ar"
     ]
-  }
-  </script>
+  },
+  "creator": {
+    "@type": "Person",
+    "name": "Aswanth R"
+  },
+  "copyrightHolder": {
+    "@type": "Person",
+    "name": "Aswanth R"
+  },
+  "copyrightYear": "2026",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock",
+    "priceValidUntil": "2030-01-01"
+  },
+  "softwareHelp": {
+    "@type": "CreativeWork",
+    "name": "Pytml Documentation and Examples",
+    "description": "Full documentation, live demos, and API references for using Pytml.",
+    "url": "https://github.com/NodeX-AR/Pytml/blob/main/README.md"
+  },
+  "discussionUrl": "https://github.com/NodeX-AR/Pytml/issues",
+  "codeRepository": "https://github.com/NodeX-AR/Pytml",
+  "sameAs": [
+    "https://github.com/NodeX-AR/Pytml",
+    "https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4",
+    "https://devpost.com/software/pytml"
+  ],
+  "inLanguage": "en-US",
+  "isAccessibleForFree": true
+}
+</script>
 
   <!-- ========== FONTS ========== -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
