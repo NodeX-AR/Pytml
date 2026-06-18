@@ -154,6 +154,9 @@
                     }
                 `;
                 document.head.appendChild(style);
+                const hideStyle = document.createElement('style');
+                hideStyle.textContent = 'py { display: none; }';
+                document.head.appendChild(hideStyle);
 
                 // Insert container before the first Python script, or at the top of body
                 const firstScript = document.querySelector('py, script[type="text/python"]');
