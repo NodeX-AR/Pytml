@@ -1,347 +1,436 @@
 (function(window) {
+    'use strict';
+
+    // ----------------------------------------------
+    //  PYTML – Main Class
+    // ----------------------------------------------
     class PYTML {
         constructor() {
             this.outputContainer = null;
+            this.statusElement = null;
+            this.isReady = false;
+            this.pendingPromises = [];
             this.init();
         }
 
+        // --------------------------------------------------
+        //  Initialisation
+        // --------------------------------------------------
         async init() {
-            console.log('PYTML: Initializing with inline inputs...');
+            console.log('[PYTML] Initialising...');
             this.createOutputContainer();
-            this.showStatus('Loading Python...');
-            
-            const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
-            
-            script.onload = async () => {
-                this.showStatus('Initializing Python...');
-                let pyodide = await loadPyodide({
+            this.showStatus('Loading Python engine...');
+
+            try {
+                // Load Pyodide script
+                await this.loadPyodideScript();
+
+                // Initialise Pyodide
+                const pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
                 });
-                
                 window.pyodide = pyodide;
-                
-                // Override print and input
-                await pyodide.runPythonAsync(`
-import sys
-import js
-from js import document
 
-class HTMLOutput:
-    def write(self, text):
-        if text:
-            js.displayStyledOutput(str(text))
-    def flush(self):
-        pass
+                // Setup Python environment
+                await this.setupPythonEnvironment();
 
-sys.stdout = HTMLOutput()
-
-# Async input that awaits the JavaScript Promise
-async def input(prompt=""):
-    if prompt:
-        print(prompt)
-    result = await js.createInlineInput(str(prompt))
-    return result
-`);
-                
+                this.isReady = true;
                 this.hideStatus();
-                console.log('PYTML: Ready!');
-                await this.loadPythonScripts();
-            };
-            
-            script.onerror = () => {
-                this.showStatus('Failed to load Pyodide.', true);
-            };
-            
-            document.head.appendChild(script);
+                console.log('[PYTML] Ready!');
+
+                // Execute all Python scripts (inline and external)
+                await this.runAllPythonScripts();
+
+            } catch (error) {
+                this.showStatus('Initialisation failed: ' + error.message, true);
+                this.addError('PYTML initialisation error: ' + error.message);
+                console.error('[PYTML] Fatal error:', error);
+            }
         }
 
+        // --------------------------------------------------
+        //  DOM Setup
+        // --------------------------------------------------
         createOutputContainer() {
-            if (!document.getElementById('pytml-output')) {
-                const container = document.createElement('div');
+            let container = document.getElementById('pytml-output');
+            if (!container) {
+                container = document.createElement('div');
                 container.id = 'pytml-output';
-                container.style.cssText = `
-                    background: #0a0e27;
-                    border-radius: 15px;
-                    padding: 20px;
-                    margin: 20px 0;
-                    font-family: 'Courier New', monospace;
-                    font-size: 14px;
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-                    border: 1px solid rgba(102, 126, 234, 0.3);
-                    max-height: 500px;
-                    overflow-y: auto;
+                container.className = 'pytml-output';
+                // Apply base styles via a style element to keep them scoped
+                const style = document.createElement('style');
+                style.textContent = `
+                    .pytml-output {
+                        background: #0a0e27;
+                        border-radius: 15px;
+                        padding: 20px;
+                        margin: 20px 0;
+                        font-family: 'Courier New', monospace;
+                        font-size: 14px;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                        border: 1px solid rgba(102, 126, 234, 0.3);
+                        max-height: 500px;
+                        overflow-y: auto;
+                        color: #e0e0e0;
+                    }
+                    .pytml-output .pytml-line {
+                        margin: 4px 0;
+                        line-height: 1.5;
+                        white-space: pre-wrap;
+                        word-break: break-word;
+                    }
+                    .pytml-output .pytml-error {
+                        color: #fa709a;
+                        background: rgba(250,112,154,0.15);
+                        padding: 10px;
+                        margin: 10px 0;
+                        border-radius: 8px;
+                    }
+                    .pytml-output .pytml-success {
+                        color: #43e97b;
+                    }
+                    .pytml-output .pytml-info {
+                        color: #667eea;
+                    }
+                    .pytml-output .pytml-input-container {
+                        background: rgba(102,126,234,0.1);
+                        border-radius: 10px;
+                        padding: 15px;
+                        margin: 15px 0;
+                        border: 1px solid rgba(102,126,234,0.3);
+                    }
+                    .pytml-output .pytml-input-prompt {
+                        color: #ffd93d;
+                        font-weight: 500;
+                        margin-bottom: 10px;
+                        font-family: system-ui, sans-serif;
+                    }
+                    .pytml-output .pytml-input-field {
+                        width: 100%;
+                        padding: 10px 12px;
+                        background: rgba(255,255,255,0.1);
+                        border: 1px solid rgba(102,126,234,0.5);
+                        border-radius: 8px;
+                        color: white;
+                        font-size: 14px;
+                        font-family: monospace;
+                        outline: none;
+                        box-sizing: border-box;
+                        margin-bottom: 10px;
+                    }
+                    .pytml-output .pytml-input-submit {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 8px;
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                        font-size: 14px;
+                        touch-action: manipulation;
+                    }
+                    .pytml-output .pytml-input-submit:hover {
+                        transform: scale(1.02);
+                    }
+                    .pytml-status {
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        background: #667eea;
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 20px;
+                        font-family: monospace;
+                        font-size: 12px;
+                        z-index: 9999;
+                        max-width: 80vw;
+                        word-break: break-word;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                        transition: opacity 0.3s;
+                    }
+                    .pytml-status.error {
+                        background: #fa709a;
+                    }
                 `;
-                
-                const pyScripts = document.querySelectorAll('script[type="text/python"], py');
-                if (pyScripts.length > 0) {
-                    pyScripts[0].insertAdjacentElement('beforebegin', container);
+                document.head.appendChild(style);
+
+                // Insert container before the first Python script, or at the top of body
+                const firstScript = document.querySelector('py, script[type="text/python"]');
+                if (firstScript) {
+                    firstScript.insertAdjacentElement('beforebegin', container);
                 } else {
                     document.body.insertAdjacentElement('afterbegin', container);
                 }
-                this.outputContainer = container;
-            } else {
-                this.outputContainer = document.getElementById('pytml-output');
             }
+            this.outputContainer = container;
         }
 
-        /**
-         * Wraps code to handle async operations (for input() calls)
-         */
-        wrapCodeAsync(code) {
-            const lines = code.split('\n');
-            const wrappedLines = [];
-            wrappedLines.push('async def __main__():');
-            
-            for (let line of lines) {
-                // Add indentation
-                let newLine = '    ' + line;
-                // Replace input() with await input()
-                newLine = newLine.replace(/input\(/g, 'await input(');
-                wrappedLines.push(newLine);
-            }
-            
-            wrappedLines.push('');
-            wrappedLines.push('await __main__()');
-            
-            return wrappedLines.join('\n');
+        // --------------------------------------------------
+        //  Pyodide Loading
+        // --------------------------------------------------
+        loadPyodideScript() {
+            return new Promise((resolve, reject) => {
+                if (typeof loadPyodide !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('Failed to load Pyodide script from CDN.'));
+                document.head.appendChild(script);
+            });
         }
 
-        async loadPythonScripts() {
-            // Load inline <py> tags first (works everywhere including file://)
+        // --------------------------------------------------
+        //  Python Environment Setup
+        // --------------------------------------------------
+        async setupPythonEnvironment() {
+            const pyodide = window.pyodide;
+
+            // Override stdout and stderr
+            await pyodide.runPythonAsync(`
+import sys
+import js
+
+class OutputRedirect:
+    def __init__(self, is_error=False):
+        self.is_error = is_error
+    def write(self, text):
+        if text:
+            js.pyodideInstance.addOutput(str(text), self.is_error)
+    def flush(self):
+        pass
+
+sys.stdout = OutputRedirect(False)
+sys.stderr = OutputRedirect(True)
+
+# Override input – async function that calls JS
+async def input(prompt=""):
+    # We do NOT print(prompt) here – the JS will show it in the DOM
+    result = await js.pyodideInstance.getUserInput(str(prompt))
+    return result
+`);
+
+            // Also expose the instance to Python's js module
+            window.pyodideInstance = this;
+
+            // Store a reference to the Python input function for later use in transformation
+            // Not needed because we'll transform the user code.
+        }
+
+        // --------------------------------------------------
+        //  Running Python Scripts (inline & external)
+        // --------------------------------------------------
+        async runAllPythonScripts() {
+            // Find all <py> tags (inline)
             const pyTags = document.querySelectorAll('py');
-            for (let pyTag of pyTags) {
-                const code = pyTag.textContent;
-                console.log('Loading inline Python code from <py> tag');
-                
-                try {
-                    this.clearOutput();
-                    const wrappedCode = this.wrapCodeAsync(code);
-                    await window.pyodide.runPythonAsync(wrappedCode);
-                    pyTag.remove();
-                } catch(e) {
-                    this.addError(e.message);
-                    console.error(e);
-                }
+            for (const tag of pyTags) {
+                const code = tag.textContent;
+                await this.executePythonCode(code, tag);
+                tag.remove(); // optional: remove after execution
             }
 
-            // Load external Python files via script tags (HTTP/HTTPS only)
-            const pyScripts = document.querySelectorAll('script[type="text/python"][src]');
-            for (let scriptTag of pyScripts) {
-                const pyFile = scriptTag.getAttribute('src');
-                console.log(`Loading: ${pyFile}`);
-
-                try {
-                    const response = await fetch(pyFile);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}: ${pyFile}`);
-                    }
-                    const code = await response.text();
-                    
-                    this.clearOutput();
-                    const wrappedCode = this.wrapCodeAsync(code);
-                    
-                    await window.pyodide.runPythonAsync(wrappedCode);
-                    scriptTag.remove();
-
-                } catch(e) {
-                    this.addError(e.message);
-                    console.error(e);
-                }
+            // Find external scripts (<script type="text/python" src="...">)
+            const scriptTags = document.querySelectorAll('script[type="text/python"][src]');
+            for (const tag of scriptTags) {
+                const src = tag.getAttribute('src');
+                await this.executeExternalPython(src, tag);
+                tag.remove();
             }
         }
 
-        async createInlineInput(prompt) {
+        async executePythonCode(code, sourceElement = null) {
+            if (!this.isReady) {
+                this.addError('Python engine not ready yet.');
+                return;
+            }
+
+            try {
+                // Transform the code safely using AST
+                const transformed = await this.transformPythonCode(code);
+                // Execute with async wrapper
+                await window.pyodide.runPythonAsync(transformed);
+            } catch (error) {
+                this.addError('Execution error: ' + error.message);
+                console.error('[PYTML] Execution error:', error);
+            }
+        }
+
+        async executeExternalPython(src, tag) {
+            this.showStatus('Loading: ' + src);
+            try {
+                const response = await fetch(src);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status} – ${src}`);
+                }
+                const code = await response.text();
+                this.showStatus('Running: ' + src);
+                await this.executePythonCode(code, tag);
+                this.hideStatus();
+            } catch (error) {
+                this.addError('Failed to load external script: ' + error.message);
+                this.showStatus('Error loading ' + src, true);
+                console.error('[PYTML] External script error:', error);
+            }
+        }
+
+        // --------------------------------------------------
+        //  AST‑Based Code Transformation (safe input replacement)
+        // --------------------------------------------------
+        async transformPythonCode(code) {
+            // We use Python's ast module to rewrite `input()` calls into `await input()`
+            // This ensures we only replace actual function calls, not strings, comments, or variable names.
+            const pyodide = window.pyodide;
+            const transformScript = `
+import ast
+
+class InputTransformer(ast.NodeTransformer):
+    def visit_Call(self, node):
+        # Check if it's a call to 'input'
+        if isinstance(node.func, ast.Name) and node.func.id == 'input':
+            # Wrap the call in an Await node
+            new_node = ast.Await(value=node)
+            return ast.copy_location(new_node, node)
+        # Recursively transform child nodes
+        self.generic_visit(node)
+        return node
+
+def transform(code):
+    tree = ast.parse(code)
+    transformer = InputTransformer()
+    new_tree = transformer.visit(tree)
+    ast.fix_missing_locations(new_tree)
+    return ast.unparse(new_tree)
+`;
+            await pyodide.runPythonAsync(transformScript);
+
+            // Call the transform function
+            const result = await pyodide.runPythonAsync(`
+transform('''${code.replace(/'/g, "\\'")}''')
+`);
+            return result;
+        }
+
+        // --------------------------------------------------
+        //  Interactive Input via DOM
+        // --------------------------------------------------
+        getUserInput(prompt) {
             return new Promise((resolve) => {
-                // Create input container
                 const container = document.createElement('div');
-                container.style.cssText = `
-                    background: rgba(102, 126, 234, 0.1);
-                    border-radius: 10px;
-                    padding: 15px;
-                    margin: 15px 0;
-                    border: 1px solid rgba(102, 126, 234, 0.3);
-                `;
-                
-                // Add prompt text
-                const promptText = document.createElement('div');
-                promptText.textContent = prompt;
-                promptText.style.cssText = `
-                    color: #ffd93d;
-                    font-weight: 500;
-                    margin-bottom: 10px;
-                    font-family: system-ui, sans-serif;
-                    word-break: break-word;
-                `;
-                container.appendChild(promptText);
-                
-                // Add input field
+                container.className = 'pytml-input-container';
+
+                const promptDiv = document.createElement('div');
+                promptDiv.className = 'pytml-input-prompt';
+                promptDiv.textContent = prompt || 'Enter value:';
+                container.appendChild(promptDiv);
+
                 const inputField = document.createElement('input');
                 inputField.type = 'text';
-                inputField.placeholder = 'Type your answer here...';
-                inputField.style.cssText = `
-                    width: 100%;
-                    padding: 10px 12px;
-                    background: rgba(255,255,255,0.1);
-                    border: 1px solid rgba(102, 126, 234, 0.5);
-                    border-radius: 8px;
-                    color: white;
-                    font-size: 14px;
-                    font-family: monospace;
-                    outline: none;
-                    box-sizing: border-box;
-                    margin-bottom: 10px;
-                    -webkit-appearance: none;
-                    appearance: none;
-                `;
+                inputField.className = 'pytml-input-field';
+                inputField.placeholder = 'Type your answer…';
                 container.appendChild(inputField);
-                
-                // Add submit button
+
                 const submitBtn = document.createElement('button');
                 submitBtn.textContent = '✓ Submit';
-                submitBtn.style.cssText = `
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 8px;
-                    color: white;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: transform 0.2s;
-                    font-size: 14px;
-                    touch-action: manipulation;
-                    -webkit-appearance: none;
-                    appearance: none;
-                `;
+                submitBtn.className = 'pytml-input-submit';
                 container.appendChild(submitBtn);
-                
-                // Add to output container
+
+                // Append to output container
                 this.outputContainer.appendChild(container);
-                
-                // Handle submission
+
                 const submit = () => {
                     const value = inputField.value;
                     container.remove();
                     resolve(value);
                 };
-                
-                submitBtn.onclick = submit;
-                inputField.onkeypress = (e) => {
+
+                submitBtn.addEventListener('click', submit);
+                inputField.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') submit();
-                };
-                
+                });
+
                 inputField.focus();
-                
-                // Scroll to input
+                // Scroll into view
                 container.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
         }
 
-        clearOutput() {
-            if (this.outputContainer) {
-                this.outputContainer.innerHTML = '';
-            }
-        }
-
-        addStyledOutput(text) {
+        // --------------------------------------------------
+        //  Output Methods
+        // --------------------------------------------------
+        addOutput(text, isError = false) {
             if (!this.outputContainer) return;
-            
             const line = document.createElement('div');
-            
-            let color = '#43e97b';
-            if (text.includes('Error') || text.includes('not found')) {
-                color = '#fa709a';
-            } else if (text.includes('successfully')) {
-                color = '#43e97b';
-            } else if (text.includes('+----')) {
-                color = '#667eea';
+            line.className = 'pytml-line';
+            if (isError) {
+                line.className += ' pytml-error';
             } else {
-                color = '#e0e0e0';
+                // Basic heuristic for coloring (optional)
+                if (text.includes('Error') || text.includes('Traceback')) {
+                    line.className += ' pytml-error';
+                } else if (text.includes('successfully') || text.includes('OK')) {
+                    line.className += ' pytml-success';
+                } else if (text.includes('+----') || text.includes('----+')) {
+                    line.className += ' pytml-info';
+                }
             }
-            
-            line.style.cssText = `
-                color: ${color};
-                margin: 4px 0;
-                line-height: 1.5;
-                font-family: monospace;
-                white-space: pre-wrap;
-                word-break: break-word;
-                overflow-wrap: break-word;
-            `;
             line.textContent = text;
             this.outputContainer.appendChild(line);
             line.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         addError(text) {
-            if (!this.outputContainer) return;
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = `
-                color: #fa709a;
-                background: rgba(250, 112, 154, 0.15);
-                padding: 10px;
-                margin: 10px 0;
-                border-radius: 8px;
-                font-family: monospace;
-                word-break: break-word;
-                overflow-wrap: break-word;
-            `;
-            errorDiv.textContent = `❌ ${text}`;
-            this.outputContainer.appendChild(errorDiv);
+            const line = document.createElement('div');
+            line.className = 'pytml-line pytml-error';
+            line.textContent = '❌ ' + text;
+            this.outputContainer.appendChild(line);
         }
 
+        // --------------------------------------------------
+        //  Status Badge
+        // --------------------------------------------------
         showStatus(message, isError = false) {
-            let status = document.getElementById('pytml-status');
-            if (!status) {
-                status = document.createElement('div');
-                status.id = 'pytml-status';
-                status.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    background: #667eea;
-                    color: white;
-                    padding: 8px 16px;
-                    border-radius: 20px;
-                    font-family: monospace;
-                    font-size: 12px;
-                    z-index: 9999;
-                    max-width: 80vw;
-                    word-break: break-word;
-                `;
-                document.body.appendChild(status);
+            if (!this.statusElement) {
+                const el = document.createElement('div');
+                el.className = 'pytml-status';
+                document.body.appendChild(el);
+                this.statusElement = el;
             }
-            status.textContent = message;
-            if (isError) status.style.background = '#fa709a';
-            setTimeout(() => {
-                if (status && !isError) {
-                    status.style.opacity = '0.7';
-                }
-            }, 2000);
+            this.statusElement.textContent = message;
+            this.statusElement.className = 'pytml-status' + (isError ? ' error' : '');
+            this.statusElement.style.display = 'block';
         }
 
         hideStatus() {
-            const status = document.getElementById('pytml-status');
-            if (status) status.remove();
+            if (this.statusElement) {
+                this.statusElement.style.display = 'none';
+            }
         }
     }
 
-    // Global functions for Python to call
-    window.displayStyledOutput = function(text) {
-        if (window.pytmlInstance) {
-            window.pytmlInstance.addStyledOutput(text);
+    // --------------------------------------------------
+    //  Global Bridge for Python
+    // --------------------------------------------------
+    // We expose the instance as a global for Python's js module.
+    // The instance will be set after construction.
+    let instance;
+
+    function init() {
+        if (!instance) {
+            instance = new PYTML();
+            // Make it available to Python (already done in setupPythonEnvironment)
+            // but also expose as a global for debugging
+            window.pytml = instance;
         }
-    };
+    }
 
-    window.createInlineInput = function(prompt) {
-        return window.pytmlInstance.createInlineInput(prompt);
-    };
-
+    // Auto‑initialise when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            window.pytmlInstance = new PYTML();
-        });
+        document.addEventListener('DOMContentLoaded', init);
     } else {
-        window.pytmlInstance = new PYTML();
+        init();
     }
+
 })(window);
