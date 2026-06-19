@@ -1,6 +1,6 @@
 # PYTML - Python in Your Browser
 
-[![Website](https://pytml.js.org)
+[Website](https://pytml.js.org)
 
 [![GitHub stars](https://img.shields.io/github/stars/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/stargazers)
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
