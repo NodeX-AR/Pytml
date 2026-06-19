@@ -1,6 +1,11 @@
 # PYTML - Python in Your Browser
 
-[![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
+[![Website](https://pytml.js.org)
+
+[![GitHub stars](https://img.shields.io/github/stars/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/stargazers)
+[![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
 
 **Run Python in your browser with zero configuration – no server, just a script tag.**
 
