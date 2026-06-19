@@ -1,23 +1,22 @@
-#  PYTML - Python in Your Browser
+# PYTML - Python in Your Browser
 
-**The easiest way to run Python in HTML. No server. No backend. Just one line of code.**
+[![Awesome](https://awesome.re/badge.svg)](https://awesome.re)
 
-# [Official Website](https://pytml.js.org)
-**Click the above blue text**
-# Please leave as a star if our work is useful to you !
+**Run Python in your browser with zero configuration – no server, just a script tag.**
 
-## Quick Start
+Pytml is a lightweight (~15KB) JavaScript library that acts as a bridge between Python and HTML via WebAssembly. Drop a single script tag into any static page, write your logic inside `<py>` tags, and it runs natively in the browser.
+
+---
+
+##  Quick Start
 
 Add one line to your HTML:
- 
+
 ```html
 <script src="https://pytml.vercel.app/pytml.js"></script>
 ```
-
 ## Usage
-
-### Option 1: Inline Python (Recommended for mobile/local)
-
+Option 1: Inline Python (Recommended for mobile/local)
 ```html
 <!DOCTYPE html>
 <html>
@@ -33,9 +32,7 @@ print(f"Hi {name}!")
 </body>
 </html>
 ```
-
-### Option 2: External Python File (HTTP/HTTPS only)
-
+Option 2: External Python File (HTTP/HTTPS only)
 ```html
 <!DOCTYPE html>
 <html>
@@ -46,39 +43,35 @@ print(f"Hi {name}!")
     <script type="text/python" src="script.py"></script>
 </body>
 </html>
-```
-
-```py
+py
 name = input("Enter your name: ")
 age = input("Enter your age: ")
 print(f"Hello {name}, you are {age} years old!")
 ```
-
-## ⚠️ Important for Local Users (file:// protocol)
-
+## Important for Local Users (file:// protocol)
 If you're running HTML locally from your device (mobile or desktop):
 
-- **Use inline `<py>` tags** — This is the only method that works with `file://` protocol
-- **External `<script src="file.py">` won't work** — Browser security restrictions prevent loading local files this way
-- **Solution**: Copy your Python code directly into `<py>` tags in your HTML
+Use inline <py> tags — This is the only method that works with file:// protocol
 
-**Example for mobile/local:**
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://pytml.vercel.app/pytml.js"></script>
-</head>
-<body>
-    <py>
-# Your Python code here
-print("This works on mobile!")
-    </py>
-</body>
-</html>
-```
+## Features
+Zero config – just add one script tag
 
-**pytml.js itself is always loaded from the CDN** — You only need:
-- Your HTML file
-- Your Python code (either inline or in external `.py` files served over HTTP/HTTPS)
+Real I/O – print() and input() work live in the browser
 
+Full error tracebacks – debug like a local REPL
+
+Package support – NumPy, Pandas, Matplotlib via micropip
+
+Privacy-first – no code ever leaves your browser
+
+15KB wrapper – Pyodide loads lazily, page isn't blocked
+
+## Links
+[Official Website](https://pytml.js.org)
+
+
+## License
+Pytml is open-source under the Apache 2.0 License.
+
+## Support
+**If you find Pytml useful, consider giving it a star on GitHub!**
