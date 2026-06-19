@@ -1,21 +1,7 @@
 # PYTML - Python in Your Browser
 
-<a href="https://pytml.js.org/" target="_blank">
-    <svg width="200" height="40" xmlns="http://www.w3.org/2000/svg">
-        <rect width="200" height="40" rx="6" fill="#0c0c0c" stroke="#3b82f6" stroke-width="2"/>
-        <text x="50" y="26" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">🌐 Website</text>
-        <text x="120" y="26" font-family="Arial, sans-serif" font-size="12" fill="#5A627A">pytml.js.org</text>
-    </svg>
-</a>
-<a href="https://github.com/NodeX-AR/Pytml" target="_blank">
-    <svg width="200" height="40" xmlns="http://www.w3.org/2000/svg">
-        <rect width="200" height="40" rx="6" fill="#0c0c0c" stroke="#facc15" stroke-width="2"/>
-        <text x="40" y="26" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">⭐</text>
-        <text x="65" y="26" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Star on GitHub</text>
-    </svg>
-</a>
-
-[![GitHub stars](https://img.shields.io/github/stars/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/stargazers)
+[![Website](https://img.shields.io/badge/🌐%20Website-pytml.js.org-3b82f6?style=for-the-badge&logo=google-chrome&logoColor=white)](https://pytml.js.org/)
+[![GitHub stars](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-yellow?style=for-the-badge&logo=github&logoColor=black)](https://github.com/NodeX-AR/Pytml)
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
