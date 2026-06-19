@@ -3,7 +3,7 @@
 **The easiest way to run Python in HTML. No server. No backend. Just one line of code.**
 
 # [Official Website](https://pytml.js.org)
-
+**Click the above blue text**
 # Please leave as a star if our work is useful to you !
 
 ## Quick Start
