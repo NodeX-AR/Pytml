@@ -1,6 +1,45 @@
 # PYTML - Python in Your Browser
 
-[![Pytml](https://img.shields.io/badge/Pytml-Python%20in%20Browser-3b82f6?logo=python&logoColor=white)](https://pytml.js.org)
+.pytml-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #0c0c0c;
+    border: 2px solid #3b82f6;
+    padding: 0.6rem 1.2rem;
+    border-radius: 0.25rem;
+    color: white;
+    text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+.pytml-btn:hover {
+    background: #3b82f6;
+    color: #050505;
+    transform: translateX(4px);
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.3);
+}
+
+.pytml-btn svg {
+    fill: currentColor;
+    flex-shrink: 0;
+}
+
+.pytml-btn small {
+    font-size: 0.6rem;
+    opacity: 0.6;
+    font-weight: 400;
+    display: block;
+    margin-top: -2px;
+}
+
+.pytml-btn span {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
 
 [![GitHub stars](https://img.shields.io/github/stars/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/stargazers)
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
