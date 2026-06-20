@@ -5,9 +5,8 @@
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
-<iframe style="width: 100%; height: 500px; border: 1px solid rgba(0, 0, 0, 0.125);"
-        src="https://archive.softwareheritage.org/browse/embed/swh:1:dir:f92a1f52bf3898ba006e009e4cbde4d9c40b9d73;origin=https://github.com/NodeX-AR/Pytml;visit=swh:1:snp:0f6d585670f1398d99b5b4786b9e5c6631f3f117;anchor=swh:1:rev:65d0025c97ebfbd1bf11490ec2994a19486df0f0/">
-</iframe>
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/NodeX-AR/Pytml/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/NodeX-AR/Pytml)
+
 **Run Python in your browser with zero configuration – no server, just a script tag.**
 
 Pytml is a lightweight (~15KB) JavaScript library that acts as a bridge between Python and HTML via WebAssembly. Drop a single script tag into any static page, write your logic inside `<py>` tags, and it runs natively in the browser.
