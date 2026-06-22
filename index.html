@@ -44,120 +44,186 @@
   <meta name="twitter:description" content="Zero‑config Python in HTML – compare vs PyScript & Flask. 15KB, faster, simpler, no backend.">
   <meta name="twitter:image" content="https://pytml.js.org/preview.png">
 
-  <!-- ========== SCHEMA.ORG ========== -->
-  <script type="application/ld+json">
+  <!-- ========== ENHANCED SCHEMA.ORG WITH ZENODO CITATION ========== -->
+<script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "mainEntityOfPage": {
-    "@type": "WebPage",
-    "@id": "https://pytml.js.org/"
-  },
-  "name": "Pytml",
-  "alternateName": "Python in HTML Bridge",
-  "headline": "Lightweight Python in Browser – Honest Comparison vs PyScript & Flask",
-  "description": "Pytml is a 15KB zero-config JS library that runs Python in HTML via WebAssembly. Unlike PyScript (heavy) or Flask (needs server), Pytml is instant, tiny, and works on any static host.",
-  "keywords": ["Pytml", "PyScript alternative", "Flask alternative", "Python in Browser", "Zero Config Python"],
-  "applicationCategory": "DeveloperApplication",
-  "softwareVersion": "2.0",
-  "datePublished": "2026-06-04",
-  "dateModified": "2026-06-18",
-  "license": "https://github.com/NodeX-AR/Pytml/blob/main/LICENSE",
-  "url": "https://pytml.js.org/",
-  "author": {
-    "@type": "Person",
-    "name": "Aswanth R",
-    "alternateName": "NodeX-AR",
-    "url": "https://a-r.is-a.dev/"
-  },
-  "citation": {
-  "@type": "ScholarlyArticle",
-  "@id": "https://doi.org/10.5281/zenodo.20786716",
-  "name": "Pytml: Running Python in the Browser Using Pyodide",
-  "author": {
-    "@type": "Person",
-    "name": "Aswanth R"
-  }
-},
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD",
-    "availability": "https://schema.org/InStock"
-  },
-  "sameAs": [
-    "https://github.com/NodeX-AR/Pytml",
-    "https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4",
-    "https://www.wikidata.org/wiki/Q140185675"
-  ]
-}
-</script>
-
-  <!-- ========== BREADCRUMB SCHEMA ========== -->
-  <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  "itemListElement": [
-    { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://pytml.js.org/" },
-    { "@type": "ListItem", "position": 2, "name": "Pytml vs PyScript & Flask" }
-  ]
-}
-</script>
-
-  <!-- ========== UPDATED FAQ SCHEMA (technical) ========== -->
-  <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
+  "@graph": [
     {
-      "@type": "Question",
-      "name": "What is the actual bundle size of Pytml?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The Pytml wrapper itself is ~15KB minified. The Pyodide runtime (~6MB) is loaded lazily from CDN only when you actually run Python code, so initial page load isn't blocked."
+      "@type": "WebApplication",
+      "@id": "https://pytml.js.org/#webapp",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": "https://pytml.js.org/"
+      },
+      "name": "Pytml",
+      "alternateName": "Python in HTML Bridge",
+      "headline": "Lightweight Python in Browser – Honest Comparison vs PyScript & Flask",
+      "description": "Pytml is a 15KB zero-config JS library that runs Python in HTML via WebAssembly. Unlike PyScript (heavy) or Flask (needs server), Pytml is instant, tiny, and works on any static host.",
+      "keywords": ["Pytml", "PyScript alternative", "Flask alternative", "Python in Browser", "Zero Config Python"],
+      "applicationCategory": "DeveloperApplication",
+      "softwareVersion": "2.0",
+      "datePublished": "2026-06-04",
+      "dateModified": "2026-06-18",
+      "license": "https://github.com/NodeX-AR/Pytml/blob/main/LICENSE",
+      "url": "https://pytml.js.org/",
+      "author": {
+        "@type": "Person",
+        "@id": "https://a-r.is-a.dev/#person",
+        "name": "Aswanth R",
+        "alternateName": "NodeX-AR",
+        "url": "https://a-r.is-a.dev/",
+        "sameAs": [
+          "https://www.wikidata.org/wiki/Q140290370",
+          "https://orcid.org/0009-0007-1619-374X",
+          "https://github.com/NodeX-AR",
+          "https://www.linkedin.com/in/nodex-ar"
+        ]
+      },
+      "citation": {
+        "@type": "ScholarlyArticle",
+        "@id": "https://doi.org/10.5281/zenodo.20786716",
+        "name": "Pytml: Running Python in the Browser Using Pyodide",
+        "description": "Academic paper describing Pytml, a JavaScript library that uses Pyodide to run Python in web browsers.",
+        "author": {
+          "@type": "Person",
+          "@id": "https://a-r.is-a.dev/#person",
+          "name": "Aswanth R",
+          "url": "https://a-r.is-a.dev/"
+        },
+        "datePublished": "2026-06-21",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Zenodo"
+        },
+        "url": "https://doi.org/10.5281/zenodo.20786716"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      "sameAs": [
+        "https://github.com/NodeX-AR/Pytml",
+        "https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4",
+        "https://devpost.com/software/pytml",
+        "https://www.npmjs.com/package/pytml"
+      ]
+    },
+    {
+      "@type": "Person",
+      "@id": "https://a-r.is-a.dev/#person",
+      "name": "Aswanth R",
+      "alternateName": "NodeX-AR",
+      "description": "Ethical hacker and Python developer. Creator of Pytml — a zero-config JavaScript library that runs Python in the browser.",
+      "url": "https://a-r.is-a.dev/",
+      "sameAs": [
+        "https://www.wikidata.org/wiki/Q140290370",
+        "https://orcid.org/0009-0007-1619-374X",
+        "https://github.com/NodeX-AR",
+        "https://www.linkedin.com/in/nodex-ar"
+      ],
+      "citation": {
+        "@type": "ScholarlyArticle",
+        "@id": "https://doi.org/10.5281/zenodo.20786716",
+        "name": "Pytml: Running Python in the Browser Using Pyodide",
+        "datePublished": "2026-06-21",
+        "publisher": "Zenodo",
+        "url": "https://doi.org/10.5281/zenodo.20786716"
       }
     },
     {
-      "@type": "Question",
-      "name": "Can I use Pytml with React, Vue, or other JS frameworks?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Pytml is framework-agnostic. You can drop the script tag in any HTML page, including those generated by React or Vue. It scans the DOM for <py> tags after the framework renders."
+      "@type": "ScholarlyArticle",
+      "@id": "https://doi.org/10.5281/zenodo.20786716",
+      "name": "Pytml: Running Python in the Browser Using Pyodide",
+      "description": "Academic paper describing Pytml, a JavaScript library that uses Pyodide to run Python in web browsers.",
+      "author": {
+        "@type": "Person",
+        "@id": "https://a-r.is-a.dev/#person",
+        "name": "Aswanth R",
+        "url": "https://a-r.is-a.dev/"
+      },
+      "datePublished": "2026-06-21",
+      "publisher": {
+        "@type": "Organization",
+        "name": "Zenodo"
+      },
+      "url": "https://doi.org/10.5281/zenodo.20786716",
+      "isPartOf": {
+        "@type": "CreativeWork",
+        "name": "Zenodo",
+        "url": "https://zenodo.org/"
       }
     },
     {
-      "@type": "Question",
-      "name": "What Python packages are supported?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Any pure-Python package available on Pyodide's repository – including NumPy, Pandas, Matplotlib, SciPy, and scikit-learn. C-extensions are not supported unless compiled to WebAssembly."
-      }
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Home",
+          "item": "https://pytml.js.org/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Pytml vs PyScript & Flask"
+        }
+      ]
     },
     {
-      "@type": "Question",
-      "name": "How does Pytml handle errors and debugging?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Python tracebacks are captured and rendered directly in the browser terminal box. Syntax errors, runtime exceptions, and import errors all appear with line numbers and stack traces, just like a local Python REPL."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is there any server-side component or data sent to a backend?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No. Everything runs client-side in WebAssembly. No Python code, input, or output ever leaves your browser. This makes Pytml ideal for privacy-sensitive demos and educational tools."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What are the performance limitations?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Pytml runs Python in a WebAssembly sandbox. It's roughly 2-5x slower than native CPython for CPU-bound tasks, and memory is limited to the browser's tab allocation (usually 2-4GB). Heavy number crunching may be slower than server-side Python, but for demos, data viz, and scripting, it's perfectly fine."
-      }
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is the actual bundle size of Pytml?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The Pytml wrapper itself is ~15KB minified. The Pyodide runtime (~6MB) is loaded lazily from CDN only when you actually run Python code, so initial page load isn't blocked."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I use Pytml with React, Vue, or other JS frameworks?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Pytml is framework-agnostic. You can drop the script tag in any HTML page, including those generated by React or Vue. It scans the DOM for <py> tags after the framework renders."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What Python packages are supported?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Any pure-Python package available on Pyodide's repository – including NumPy, Pandas, Matplotlib, SciPy, and scikit-learn. C-extensions are not supported unless compiled to WebAssembly."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does Pytml handle errors and debugging?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Python tracebacks are captured and rendered directly in the browser terminal box. Syntax errors, runtime exceptions, and import errors all appear with line numbers and stack traces, just like a local Python REPL."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is there any server-side component or data sent to a backend?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Everything runs client-side in WebAssembly. No Python code, input, or output ever leaves your browser. This makes Pytml ideal for privacy-sensitive demos and educational tools."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What are the performance limitations?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Pytml runs Python in a WebAssembly sandbox. It's roughly 2-5x slower than native CPython for CPU-bound tasks, and memory is limited to the browser's tab allocation (usually 2-4GB). Heavy number crunching may be slower than server-side Python, but for demos, data viz, and scripting, it's perfectly fine."
+          }
+        }
+      ]
     }
   ]
 }
