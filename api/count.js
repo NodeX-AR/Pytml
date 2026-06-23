@@ -1,42 +1,66 @@
 // api/count.js
-// This file handles the counting logic
-
-// For Vercel KV (persistent storage) - RECOMMENDED
-// import { kv } from '@vercel/kv';
-
-// Option A: Using Vercel KV (Recommended - preserves count across deploys)
 export default async function handler(req, res) {
-  // Enable CORS so any site can call this
+  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
 
   try {
-    // For Vercel KV (uncomment if you have KV set up)
-    // const { kv } = await import('@vercel/kv');
-    // let count = await kv.get('pytml_count') || 0;
-    // count++;
-    // await kv.set('pytml_count', count);
+    const token = process.env.GITHUB_TOKEN;
+    const repo = 'NodeX-AR/Pytml';
+    const path = 'count.json';
 
-    // Option B: Simple in-memory counter (resets on each deploy)
-    let count = global.pytmlCount || 0;
-    count++;
-    global.pytmlCount = count;
+    // 1. Get the current count from GitHub
+    const getRes = await fetch(
+      `https://api.github.com/repos/${repo}/contents/${path}`,
+      {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
 
-    // Return JSON for Shields.io badge
+    if (!getRes.ok) {
+      throw new Error('Failed to fetch count');
+    }
+
+    const data = await getRes.json();
+    const content = Buffer.from(data.content, 'base64').toString('utf-8');
+    const currentCount = parseInt(content) || 0;
+    const newCount = currentCount + 1;
+
+    // 2. Write the new count back to GitHub
+    const updateRes = await fetch(
+      `https://api.github.com/repos/${repo}/contents/${path}`,
+      {
+        method: 'PUT',
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: `Count: ${newCount}`,
+          content: Buffer.from(String(newCount)).toString('base64'),
+          sha: data.sha
+        })
+      }
+    );
+
+    if (!updateRes.ok) {
+      throw new Error('Failed to update count');
+    }
+
+    // 3. Return the count
     res.status(200).json({
       schemaVersion: 1,
       label: "pytml loads",
-      message: String(count),
-      color: "blue",
-      style: "flat"
+      message: String(newCount),
+      color: "blue"
     });
+
   } catch (error) {
     console.error('Error:', error);
+    // Return a fallback
     res.status(200).json({
       schemaVersion: 1,
       label: "pytml loads",
