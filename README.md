@@ -1,5 +1,5 @@
 # PYTML - Python in Your Browser
-![Badge](https://hitscounter.dev/api/hit?url=https%3A%2F%2Fpytml.vercel.app%2Fpytml.js&label=Number+of+times+Pytml+is+used&icon=arrow-down-up&color=%23a370f7&message=&style=plastic&tz=UTC)
+
 [![Website](https://img.shields.io/badge/🌐%20Website-pytml.js.org-3b82f6?style=for-the-badge&logo=google-chrome&logoColor=white)](https://pytml.js.org/)
 [![GitHub stars](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-yellow?style=for-the-badge&logo=github&logoColor=black)](https://github.com/NodeX-AR/Pytml)
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
