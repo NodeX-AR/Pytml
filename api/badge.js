@@ -1,22 +1,31 @@
 // api/badge.js
-// This file generates the actual badge image
-
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'image/svg+xml');
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Cache-Control', 'no-cache');
 
   try {
-    // Get the count (same logic as count.js)
-    // For Vercel KV (uncomment if you have KV set up)
-    // const { kv } = await import('@vercel/kv');
-    // let count = await kv.get('pytml_count') || 0;
+    const token = process.env.GITHUB_TOKEN;
+    const repo = 'NodeX-AR/Pytml';
+    const path = 'count.json';
 
-    // Option B: Simple in-memory counter
-    let count = global.pytmlCount || 0;
+    // Get the current count from GitHub
+    const getRes = await fetch(
+      `https://api.github.com/repos/${repo}/contents/${path}`,
+      {
+        headers: {
+          'Authorization': `token ${token}`,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }
+    );
 
-    // Generate SVG badge
+    let count = 0;
+    if (getRes.ok) {
+      const data = await getRes.json();
+      const content = Buffer.from(data.content, 'base64').toString('utf-8');
+      count = parseInt(content) || 0;
+    }
+
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="160" height="20">
         <linearGradient id="b" x2="0" y2="100%">
@@ -39,12 +48,11 @@ export default async function handler(req, res) {
     `;
 
     res.status(200).send(svg);
+
   } catch (error) {
-    console.error('Error:', error);
-    // Return a fallback badge
     res.status(200).send(`
-      <svg xmlns="http://www.w3.org/2000/svg" width="140" height="20">
-        <rect width="140" height="20" fill="#555"/>
+      <svg xmlns="http://www.w3.org/2000/svg" width="160" height="20">
+        <rect width="160" height="20" fill="#555"/>
         <text x="10" y="14" fill="white" font-family="monospace" font-size="11">
           pytml loads: error
         </text>
