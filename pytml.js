@@ -1,3 +1,6 @@
+fetch('https://pytml.vercel.app/api/count')
+  .then(r => r.json())
+  .then(data => console.log('Pytml loaded:', data.count, 'times'));
 (function(window) {
     'use strict';
 
