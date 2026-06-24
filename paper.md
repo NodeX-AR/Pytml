@@ -40,6 +40,22 @@ Pytml enables interactive coding exercises for Python education. Students can ex
 ## Technical Documentation
 Technical writers and open-source maintainers can embed executable Python examples in documentation, allowing users to test code snippets immediately.
 
+## State of the field
+
+Several tools exist for running Python in web browsers. Pyodide provides CPython compiled to WebAssembly but requires JavaScript boilerplate for integration. Brython implements Python in JavaScript, offering similar functionality with different tradeoffs. Skulpt provides a lightweight Python-in-JavaScript implementation suitable for educational contexts. Pytml differs by providing a zero-boilerplate wrapper around Pyodide that handles DOM I/O automatically.
+
+## Software design
+
+Pytml is a JavaScript library that wraps Pyodide. On page load, it initializes Pyodide from a CDN, redirects Python's print() and input() to DOM elements, scans for `<py>` tags, and executes Python code in the browser. It transforms blocking input() calls into async JavaScript Promises.
+
+## Research impact
+
+Pytml enables educational Python use on any device with a browser, removing infrastructure barriers in resource-constrained environments. It supports rapid prototyping and interactive documentation.
+
+## AI usage disclosure
+
+GitHub Copilot was used as a coding assistant during the development of Pytml. The AI provided code comments and suggestions, particularly for boilerplate code and for official website. All code was reviewed, tested, and validated by the author before integration. No AI tools were used in the writing of this paper or its supporting documentation.
+
 ## Rapid Prototyping
 Developers can quickly prototype Python-based web applications without setting up a backend server, making it ideal for early-stage development and testing.
 
