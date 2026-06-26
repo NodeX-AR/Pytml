@@ -32,5 +32,5 @@ The following is a set of guidelines for contributing to this project. These are
 
 1. Clone your fork:
    ```bash
-   git clone https://github.com/your-username/pytml.git
+   git clone https://github.com/nodex-ar/pytml.git
    cd pytml
