@@ -20,16 +20,11 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const issueNumber = context.issue.number;
-            const opener = context.payload.sender.login; // the user who opened
-
-            const body = `Hello @${opener},
-
-First off thanks for showing interest in our project.
-
-Your request will be reviewed by @nodex-ar soon as he becomes free.
-
-Once again thanks and just leave us a star and help us !`;
-
+            const opener = context.payload.sender.login;
+            const body = "Hello @" + opener + ",\n" +
+                         "First off thanks for showing interest in our project.\n\n" +
+                         "Your request will be reviewed by @nodex-ar soon as he becomes free.\n\n" +
+                         "Once again thanks and just leave us a star and help us !";
             await github.rest.issues.createComment({
               owner,
               repo,
