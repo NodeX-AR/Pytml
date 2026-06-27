@@ -49,7 +49,8 @@ Option 2: External Python File (HTTP/HTTPS only)
     <script type="text/python" src="script.py"></script>
 </body>
 </html>
-py
+```
+```py
 name = input("Enter your name: ")
 age = input("Enter your age: ")
 print(f"Hello {name}, you are {age} years old!")
