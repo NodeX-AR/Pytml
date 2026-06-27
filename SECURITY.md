@@ -2,20 +2,22 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+I recommend to use stable version.
+
+If you want real challenges then use our beta verion and say us how is it!
+```html
+<script src="https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@Beta-Version/pytml.js"></script>
+```
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| 2.3.x   | :x:                |
+| 2.2.x   | :white_check_mark: |
+| 2.1.x   | :white_check_mark: |
+| < 2.0   | :x:                |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
-
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+First off Thanks!
+You can open a [Issue](https://github.com/nodex-ar/pytml/issues) and report your bugs.
+If you are confident about how to fix it then fork this respo, fix the bug then open a pr. We will look after that !
