@@ -1,13 +1,9 @@
-// At the very top of pytml.js
 fetch('https://pytml.vercel.app/api/count')
   .then(r => r.json())
-  .then(data => console.log('Pytml loaded:', data.message, 'times'));
+  .then(data => console.log('Pytml loaded:', data.message, 'times'))
+  .catch(() => {});
 (function(window) {
     'use strict';
-
-    // ----------------------------------------------
-    //  PYTML – Main Class
-    // ----------------------------------------------
     class PYTML {
         constructor() {
             this.outputContainer = null;
@@ -16,33 +12,22 @@ fetch('https://pytml.vercel.app/api/count')
             this.pendingPromises = [];
             this.init();
         }
-
-        // --------------------------------------------------
-        //  Initialisation
-        // --------------------------------------------------
         async init() {
             console.log('[PYTML] Initialising...');
             this.createOutputContainer();
             this.showStatus('Loading Python engine...');
 
             try {
-                // Load Pyodide script
                 await this.loadPyodideScript();
-
-                // Initialise Pyodide
                 const pyodide = await loadPyodide({
                     indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/'
                 });
                 window.pyodide = pyodide;
-
-                // Setup Python environment
                 await this.setupPythonEnvironment();
 
                 this.isReady = true;
                 this.hideStatus();
                 console.log('[PYTML] Ready!');
-
-                // Execute all Python scripts (inline and external)
                 await this.runAllPythonScripts();
 
             } catch (error) {
@@ -51,10 +36,6 @@ fetch('https://pytml.vercel.app/api/count')
                 console.error('[PYTML] Fatal error:', error);
             }
         }
-
-        // --------------------------------------------------
-        //  DOM Setup
-        // --------------------------------------------------
         createOutputContainer() {
             let container = document.getElementById('pytml-output');
             if (!container) {
@@ -196,10 +177,12 @@ fetch('https://pytml.vercel.app/api/count')
         async setupPythonEnvironment() {
             const pyodide = window.pyodide;
 
-            // Override stdout and stderr
+            
+           // Override stdout and stderr + DEFINE AST TRANSFORMER ONCE
             await pyodide.runPythonAsync(`
 import sys
 import js
+import ast
 
 class OutputRedirect:
     def __init__(self, is_error=False):
@@ -215,11 +198,25 @@ sys.stderr = OutputRedirect(True)
 
 # Override input – async function that calls JS
 async def input(prompt=""):
-    # We do NOT print(prompt) here – the JS will show it in the DOM
     result = await js.pyodideInstance.getUserInput(str(prompt))
     return result
-`);
 
+# ---------- AST TRANSFORMER (DEFINED ONCE) ----------
+class InputTransformer(ast.NodeTransformer):
+    def visit_Call(self, node):
+        if isinstance(node.func, ast.Name) and node.func.id == 'input':
+            new_node = ast.Await(value=node)
+            return ast.copy_location(new_node, node)
+        self.generic_visit(node)
+        return node
+
+def transform_pytml_code(code):
+    tree = ast.parse(code)
+    transformer = InputTransformer()
+    new_tree = transformer.visit(tree)
+    ast.fix_missing_locations(new_tree)
+    return ast.unparse(new_tree)
+`);
             // Also expose the instance to Python's js module
             window.pyodideInstance = this;
 
@@ -286,38 +283,29 @@ async def input(prompt=""):
         // --------------------------------------------------
         //  AST‑Based Code Transformation (safe input replacement)
         // --------------------------------------------------
-        async transformPythonCode(code) {
-            // We use Python's ast module to rewrite `input()` calls into `await input()`
-            // This ensures we only replace actual function calls, not strings, comments, or variable names.
-            const pyodide = window.pyodide;
-            const transformScript = `
-import ast
+            async transformPythonCode(code) {
+            if (!this.isReady) {
+                this.addError('Python engine not ready yet.');
+                return code;
+            }
 
-class InputTransformer(ast.NodeTransformer):
-    def visit_Call(self, node):
-        # Check if it's a call to 'input'
-        if isinstance(node.func, ast.Name) and node.func.id == 'input':
-            # Wrap the call in an Await node
-            new_node = ast.Await(value=node)
-            return ast.copy_location(new_node, node)
-        # Recursively transform child nodes
-        self.generic_visit(node)
-        return node
-
-def transform(code):
-    tree = ast.parse(code)
-    transformer = InputTransformer()
-    new_tree = transformer.visit(tree)
-    ast.fix_missing_locations(new_tree)
-    return ast.unparse(new_tree)
-`;
-            await pyodide.runPythonAsync(transformScript);
-
-            // Call the transform function
-            const result = await pyodide.runPythonAsync(`
-transform('''${code.replace(/'/g, "\\'")}''')
+            try {
+                // ✅ Escape triple quotes to safely pass code to Python
+                const escapedCode = code.replace(/"""/g, '\\"\\"\\"');
+                
+                // Pass code as a Python variable (safe, no interpolation crashes)
+                await window.pyodide.runPythonAsync(`_pytml_code = """${escapedCode}"""`);
+                
+                // Call the pre-defined transformer (defined once in setupPythonEnvironment)
+                const result = await window.pyodide.runPythonAsync(`
+result = transform_pytml_code(_pytml_code)
+result
 `);
-            return result;
+                return result;
+            } catch (error) {
+                this.addError('Code transformation error: ' + error.message);
+                return code; // Fallback to raw code if transformation fails
+            }
         }
 
         // --------------------------------------------------
@@ -412,7 +400,8 @@ transform('''${code.replace(/'/g, "\\'")}''')
 
         hideStatus() {
             if (this.statusElement) {
-                this.statusElement.style.display = 'none';
+                this.statusElement.remove(); // Actually remove from DOM
+                this.statusElement = null;   // Free memory
             }
         }
     }
