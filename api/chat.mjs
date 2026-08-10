@@ -1,8 +1,7 @@
-// Vercel Serverless function with CORS and OPTIONS handling.
+// Vercel Serverless function with CORS and correct Gemini REST API formatting.
 // Place at api/chat.js
 
 export default async function handler(req, res) {
-  // Always allow CORS for the site (restrict origin if you want tighter security)
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
@@ -15,25 +14,23 @@ export default async function handler(req, res) {
     return res.end();
   }
 
-  // Friendly GET for debugging from browser
+  // Debug GET endpoint
   if (req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
-    res.end(JSON.stringify({ status: 'ok', info: 'POST JSON {message} to /api/chat' }));
-    return;
+    return res.end(JSON.stringify({ status: 'ok', info: 'POST JSON {message} to /api/chat' }));
   }
 
   if (req.method !== 'POST') {
     res.writeHead(405, { 'Content-Type': 'application/json', ...corsHeaders });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
+    return res.end(JSON.stringify({ error: 'Method not allowed' }));
   }
 
-  // From here on, add cors headers to final responses as well
   const addCors = (status, payload) => {
     res.writeHead(status, { 'Content-Type': 'application/json', ...corsHeaders });
     res.end(JSON.stringify(payload));
   };
 
+  // Rate Limiting (Upstash or Memory Fallback)
   const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0]?.trim() || 'unknown';
   const RATE_LIMIT = 5;
   const WINDOW_SECONDS = 24 * 60 * 60;
@@ -47,9 +44,7 @@ export default async function handler(req, res) {
 
       const key = `pytml:rate:${ip}`;
       const count = await redis.incr(key);
-      if (count === 1) {
-        await redis.expire(key, WINDOW_SECONDS);
-      }
+      if (count === 1) await redis.expire(key, WINDOW_SECONDS);
       if (count > RATE_LIMIT) {
         return addCors(429, { error: 'Rate limit exceeded: 5 requests per 24 hours per IP' });
       }
@@ -68,25 +63,33 @@ export default async function handler(req, res) {
     }
   } catch (err) {
     console.error('Rate limit check error:', err);
-    // proceed but log
   }
 
   const body = req.body;
   const message = body?.message;
   if (!message) return addCors(400, { error: 'Missing message in request body' });
 
-  const apiKey = process.env.GIMINI_API;
-  if (!apiKey) return addCors(500, { error: 'Server misconfigured: missing GIMINI_API environment variable' });
+  // Fallback check for key names
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GIMINI_API;
+  if (!apiKey) return addCors(500, { error: 'Server misconfigured: missing GEMINI_API_KEY environment variable' });
 
-  const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
-  const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gpt-4o-mini';
+  // Standard Gemini REST Endpoint
+  const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
 
-  const payload = { model: GEMINI_MODEL, prompt: message, max_tokens: 800 };
+  // Correct Gemini JSON Payload
+  const payload = {
+    contents: [
+      {
+        parts: [{ text: message }]
+      }
+    ]
+  };
 
   try {
     const fetchRes = await fetch(GEMINI_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -97,7 +100,8 @@ export default async function handler(req, res) {
     }
 
     const data = await fetchRes.json();
-    const reply = data?.output_text || data?.choices?.[0]?.message?.content || (typeof data === 'string' ? data : JSON.stringify(data));
+    // Parse response from Gemini API structure
+    const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
     return addCors(200, { reply });
   } catch (err) {
     console.error('Chat proxy error:', err);
