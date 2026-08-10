@@ -74,7 +74,7 @@ export default async function handler(req, res) {
   if (!apiKey) return addCors(500, { error: 'Server misconfigured: missing GEMINI_API_KEY environment variable' });
 
   // Standard Gemini REST Endpoint
-  const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
   // Correct Gemini JSON Payload
   const payload = {
