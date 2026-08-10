@@ -1,18 +1,43 @@
-// Vercel Serverless function (Node 18+). Place at: api/chat.js
-// Requires: process.env.GIMINI_API
-// Optional (recommended for global rate-limiting): UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+// Vercel Serverless function with CORS and OPTIONS handling.
+// Place at api/chat.js
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  // Always allow CORS for the site (restrict origin if you want tighter security)
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  };
 
-  // get client IP (Vercel sets x-forwarded-for)
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, corsHeaders);
+    return res.end();
+  }
+
+  // Friendly GET for debugging from browser
+  if (req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
+    res.end(JSON.stringify({ status: 'ok', info: 'POST JSON {message} to /api/chat' }));
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'Content-Type': 'application/json', ...corsHeaders });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // From here on, add cors headers to final responses as well
+  const addCors = (status, payload) => {
+    res.writeHead(status, { 'Content-Type': 'application/json', ...corsHeaders });
+    res.end(JSON.stringify(payload));
+  };
+
   const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0]?.trim() || 'unknown';
-
-  // rate limit params
   const RATE_LIMIT = 5;
-  const WINDOW_SECONDS = 24 * 60 * 60; // 24 hours
+  const WINDOW_SECONDS = 24 * 60 * 60;
 
-  // Use Upstash Redis if configured for global rate-limiting
   const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
   const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
   try {
@@ -23,14 +48,12 @@ export default async function handler(req, res) {
       const key = `pytml:rate:${ip}`;
       const count = await redis.incr(key);
       if (count === 1) {
-        // set expiry on first increment
         await redis.expire(key, WINDOW_SECONDS);
       }
       if (count > RATE_LIMIT) {
-        return res.status(429).json({ error: 'Rate limit exceeded: 5 requests per 24 hours per IP' });
+        return addCors(429, { error: 'Rate limit exceeded: 5 requests per 24 hours per IP' });
       }
     } else {
-      // fallback: in-memory rate limit (not global across instances)
       if (!global._pytml_rate) global._pytml_rate = new Map();
       const entry = global._pytml_rate.get(ip) || { count: 0, first: Date.now() };
       if (Date.now() - entry.first > WINDOW_SECONDS * 1000) {
@@ -40,54 +63,44 @@ export default async function handler(req, res) {
       entry.count += 1;
       global._pytml_rate.set(ip, entry);
       if (entry.count > RATE_LIMIT) {
-        return res.status(429).json({ error: 'Rate limit exceeded: 5 requests per 24 hours per IP (non-persistent fallback)' });
+        return addCors(429, { error: 'Rate limit exceeded: 5 requests per 24 hours per IP (non-persistent fallback)' });
       }
     }
   } catch (err) {
     console.error('Rate limit check error:', err);
-    // allow through if Redis has an intermittent error, but log it
+    // proceed but log
   }
 
   const body = req.body;
   const message = body?.message;
-  if (!message) return res.status(400).json({ error: 'Missing message in request body' });
+  if (!message) return addCors(400, { error: 'Missing message in request body' });
 
   const apiKey = process.env.GIMINI_API;
-  if (!apiKey) return res.status(500).json({ error: 'Server misconfigured: missing GIMINI_API environment variable' });
+  if (!apiKey) return addCors(500, { error: 'Server misconfigured: missing GIMINI_API environment variable' });
 
   const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://api.example.com/v1/generate';
   const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gpt-4o-mini';
 
-  // Build the payload — adapt to your Gemini API contract as needed
-  const payload = {
-    model: GEMINI_MODEL,
-    prompt: message,
-    max_tokens: 800
-  };
+  const payload = { model: GEMINI_MODEL, prompt: message, max_tokens: 800 };
 
   try {
     const fetchRes = await fetch(GEMINI_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify(payload)
     });
 
     if (!fetchRes.ok) {
       const text = await fetchRes.text();
       console.error('Downstream API error:', fetchRes.status, text);
-      return res.status(502).json({ error: 'Downstream API error', details: text });
+      return addCors(502, { error: 'Downstream API error', details: text });
     }
 
     const data = await fetchRes.json();
-
-    // attempt to extract usable text — adapt this to the real schema you get back
     const reply = data?.output_text || data?.choices?.[0]?.message?.content || (typeof data === 'string' ? data : JSON.stringify(data));
-    return res.json({ reply });
+    return addCors(200, { reply });
   } catch (err) {
     console.error('Chat proxy error:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return addCors(500, { error: 'Internal server error' });
   }
 }

@@ -81,9 +81,20 @@
         return;
       }
 
-      const j = await res.json();
-      if(j.error) appendMessage(j.error, 'bot');
-      else appendMessage(j.reply || JSON.stringify(j), 'bot');
+      // Try parse JSON, but fall back to text if it's HTML or plain text
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        // not JSON (likely HTML error page). Show the text so debugging is easier.
+        const textBody = await res.text();
+        appendMessage('Unexpected non-JSON response from /api/chat — see response below:', 'bot');
+        appendMessage(textBody, 'bot');
+        return;
+      }
+
+      if (data.error) appendMessage(data.error, 'bot');
+      else appendMessage(data.reply || JSON.stringify(data), 'bot');
 
     }catch(err){
       hideTyping();
