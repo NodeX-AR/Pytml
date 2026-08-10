@@ -628,7 +628,7 @@
 
             // ─── Send message to backend ───
             async function sendToBackend(message) {
-                const response = await fetch('/api/chat', {
+                const response = await fetch('https://pytml.vercel.app/api/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -672,7 +672,7 @@
                 } catch (err) {
                     hideTyping();
                     console.error('Chat error:', err);
-                    addMessage(`❌ Error: ${err.message || 'Something went wrong'}`, 'bot');
+                    addMessage(`Error: ${err.message || 'Something went wrong'}`, 'bot');
                 } finally {
                     isProcessing = false;
                     sendBtn.disabled = false;
