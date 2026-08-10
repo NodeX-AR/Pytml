@@ -1,0 +1,11 @@
+{
+  "name": "pytml-chatbot",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@upstash/redis": "^2.1.0"
+  }
+}
