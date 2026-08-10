@@ -76,8 +76,28 @@ export default async function handler(req, res) {
   // Standard Gemini REST Endpoint
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
-  // Correct Gemini JSON Payload
+  // ─── NEW: System instruction for Pytml support ───
+  const systemPrompt = `You are a support assistant for "Pytml" – a lightweight library that runs Python in the browser using WebAssembly.
+Your job is to help users with installation, usage, debugging, and best practices for Pytml.
+Key facts about Pytml:
+- Include <script src="https://pytml.vercel.app/pytml.js"></script> in any HTML page.
+- Use <py> tags to write inline Python.
+- Use <script type="text/python" src="file.py"></script> for external Python files.
+- Supports NumPy, Pandas, Matplotlib via micropip.
+- Privacy-first – no code ever leaves the browser.
+- Works with file:// protocol for inline tags.
+- Official website: https://pytml.js.org
+- GitHub: https://github.com/nodex-ar/pytml
+- Project made and maintained by Aswanth R
+
+Always keep responses concise, helpful, and focused on Pytml.
+If the user asks about something unrelated, politely say you're only able to help with Pytml-related questions.
+If you ever feel to know how the project works you can see the source file https://pytml.vercel.app/pytml.js which is the project so you can help them eve better`;
+
   const payload = {
+    system_instruction: {
+      parts: [{ text: systemPrompt }]
+    },
     contents: [
       {
         parts: [{ text: message }]
@@ -99,7 +119,6 @@ export default async function handler(req, res) {
     }
 
     const data = await fetchRes.json();
-    // Parse response from Gemini API structure
     const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
     return addCors(200, { reply });
   } catch (err) {
