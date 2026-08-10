@@ -865,5 +865,103 @@ print(f"Hi {name}!")
       });
     });
   </script>
+<!-- ===== FLOATING CHAT BUTTON ===== -->
+<style>
+  .chat-float {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  /* Speech bubble */
+  .chat-bubble {
+    background: #0c0c0c;
+    border: 1px solid #1e1e1e;
+    border-radius: 16px 16px 4px 16px;
+    padding: 12px 18px;
+    max-width: 200px;
+    color: #e5e5e5;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+    animation: bubbleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.6s forwards;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  .chat-bubble .greeting {
+    font-weight: 600;
+    color: #3b82f6;
+  }
+  .chat-bubble .sub {
+    color: #8a8a8a;
+    font-size: 0.75rem;
+  }
+
+  @keyframes bubbleIn {
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* Circular button */
+  .chat-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: none;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+    color: white;
+    font-size: 28px;
+  }
+  .chat-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 28px rgba(59, 130, 246, 0.6);
+  }
+  .chat-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Hide bubble on small screens if needed */
+  @media (max-width: 480px) {
+    .chat-bubble {
+      max-width: 160px;
+      font-size: 0.75rem;
+      padding: 10px 14px;
+    }
+    .chat-btn {
+      width: 52px;
+      height: 52px;
+      font-size: 24px;
+    }
+  }
+</style>
+
+<div class="chat-float">
+  <!-- Speech bubble -->
+  <div class="chat-bubble">
+    <div class="greeting">Hello,</div>
+    <div>How can I help you?</div>
+    <div class="sub">💬 Ask about Pytml</div>
+  </div>
+
+  <!-- Button linking to /bot -->
+  <a href="https://pytml.js.org/bot" class="chat-btn" aria-label="Open chat support">
+    💬
+  </a>
+</div>
 </body>
 </html>
