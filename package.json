@@ -4,8 +4,5 @@
   "private": true,
   "engines": {
     "node": ">=18"
-  },
-  "dependencies": {
-    "@upstash/redis": "^2.1.0"
   }
 }
