@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/chat.js": {
+      "runtime": "nodejs@18.x"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
