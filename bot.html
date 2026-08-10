@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pytml Help Bot</title>
@@ -255,22 +258,69 @@
             padding: 6px 0;
             color: var(--text-primary);
         }
-        .msg-row.bot .bubble code {
+
+        /* ---- Markdown styling for bot messages (ADDED) ---- */
+        .msg-row.bot .bubble h1,
+        .msg-row.bot .bubble h2,
+        .msg-row.bot .bubble h3 {
+            margin: 0.5em 0 0.25em;
+            font-weight: 600;
+        }
+        .msg-row.bot .bubble h1 { font-size: 1.5em; }
+        .msg-row.bot .bubble h2 { font-size: 1.3em; }
+        .msg-row.bot .bubble h3 { font-size: 1.1em; }
+
+        .msg-row.bot .bubble ul,
+        .msg-row.bot .bubble ol {
+            padding-left: 1.5em;
+            margin: 0.3em 0;
+        }
+        .msg-row.bot .bubble li {
+            margin-bottom: 0.2em;
+        }
+
+        .msg-row.bot .bubble blockquote {
+            border-left: 3px solid var(--accent);
+            padding-left: 1em;
+            margin: 0.5em 0;
+            color: var(--text-secondary);
+        }
+
+        .msg-row.bot .bubble a {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+        .msg-row.bot .bubble a:hover {
+            color: var(--accent-hover);
+        }
+
+        .msg-row.bot .bubble pre {
+            background: var(--surface-elevated);
+            border-radius: var(--radius-xs);
+            padding: 0;
+            margin: 0.5em 0;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.6;
+            border: 1px solid var(--border);
+        }
+        .msg-row.bot .bubble pre code {
+            display: block;
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            background: transparent;
+            color: #d4d4d4;
+            white-space: pre;
+            word-break: normal;
+        }
+        .msg-row.bot .bubble code:not(pre code) {
             background: var(--surface-elevated);
             padding: 2px 8px;
             border-radius: 6px;
             font-size: 13px;
             color: #d4d4d4;
-        }
-        .msg-row.bot .bubble pre {
-            background: var(--surface-elevated);
-            padding: 12px 16px;
-            border-radius: var(--radius-xs);
-            overflow-x: auto;
-            font-size: 13px;
-            line-height: 1.6;
-            margin: 8px 0;
-            border: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* ─── TYPING DOTS ─── */
@@ -577,6 +627,11 @@
 
                 if (role === 'bot') {
                     bubble.innerHTML = formatBotText(text);
+                    // highlight code blocks inside this bubble
+                    const codes = bubble.querySelectorAll('pre code');
+                    codes.forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
                 } else {
                     bubble.textContent = text;
                 }
@@ -589,12 +644,8 @@
                 scrollToBottom();
             }
 
-            // ─── Simple formatting ───
             function formatBotText(text) {
-                let html = text
-                    .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
-                    .replace(/`([^`]+)`/g, '<code>$1</code>')
-                    .replace(/\n/g, '<br>');
+                const html = marked.parse(text);
                 return html;
             }
 
@@ -642,9 +693,8 @@
                 }
 
                 const data = await response.json();
-                // Expect { response: "..." } — adjust if your backend uses a different field
                 if (data.reply === undefined) {
-                    throw new Error('Unexpected response format: missing "response" field');
+                    throw new Error('Unexpected response format: missing "reply" field');
                 }
                 return data.reply;
             }
@@ -657,12 +707,10 @@
                 isProcessing = true;
                 sendBtn.disabled = true;
 
-                // Show user message immediately
                 addMessage(text, 'user');
                 input.value = '';
                 input.focus();
 
-                // Show typing indicator
                 const typingRow = showTyping();
 
                 try {
