@@ -643,7 +643,7 @@
 
                 const data = await response.json();
                 // Expect { response: "..." } — adjust if your backend uses a different field
-                if (data.response === undefined) {
+                if (data.reply === undefined) {
                     throw new Error('Unexpected response format: missing "response" field');
                 }
                 return data.response;
