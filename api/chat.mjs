@@ -78,7 +78,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.GIMINI_API;
   if (!apiKey) return addCors(500, { error: 'Server misconfigured: missing GIMINI_API environment variable' });
 
-  const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  const GEMINI_API_URL = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
   const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gpt-4o-mini';
 
   const payload = { model: GEMINI_MODEL, prompt: message, max_tokens: 800 };
