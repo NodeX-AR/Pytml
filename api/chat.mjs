@@ -32,8 +32,8 @@ export default async function handler(req, res) {
 
   // Rate Limiting (Upstash or Memory Fallback)
   const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0]?.trim() || 'unknown';
-  const RATE_LIMIT = 5;
-  const WINDOW_SECONDS = 24 * 60 * 60;
+  const RATE_LIMIT = 10;
+  const WINDOW_SECONDS = 60 * 60;
 
   const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
   const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       const count = await redis.incr(key);
       if (count === 1) await redis.expire(key, WINDOW_SECONDS);
       if (count > RATE_LIMIT) {
-        return addCors(429, { error: 'Rate limit exceeded: 5 requests per 24 hours per IP' });
+        return addCors(429, { error: 'Rate limit exceeded: 10 requests per hour per IP' });
       }
     } else {
       if (!global._pytml_rate) global._pytml_rate = new Map();
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       entry.count += 1;
       global._pytml_rate.set(ip, entry);
       if (entry.count > RATE_LIMIT) {
-        return addCors(429, { error: 'Rate limit exceeded: 5 requests per 24 hours per IP (non-persistent fallback)' });
+        return addCors(429, { error: 'Rate limit exceeded: 10 requests per hour per IP (non-persistent fallback)' });
       }
     }
   } catch (err) {
@@ -92,7 +92,8 @@ Key facts about Pytml:
 
 Always keep responses concise, helpful, and focused on Pytml.
 If the user asks about something unrelated, politely say you're only able to help with Pytml-related questions.
-If you ever feel to know how the project works you can see the source file https://pytml.vercel.app/pytml.js which is the project so you can help them eve better`;
+If you ever feel to know how the project works you can see the source file https://pytml.vercel.app/pytml.js which is the project so you can help them eve better
+If user wants to know about Aswanth R the fetch details from a-r.is-a.dev and https://www.wikidata.org/wiki/Q140290370  and include his photo given in that wikidata entry in your response`;
 
   const payload = {
     system_instruction: {
