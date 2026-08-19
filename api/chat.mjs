@@ -101,7 +101,7 @@ About the creator – Aswanth R:
 - **Profile picture**: when you mention him, include this Markdown image: ![Aswanth R](https://github.com/nodex-ar.png?size=200)
 
 If asked about his friends them list these:
-- S Sreehari
+- S Sreehari (his picture ![S Sreehari](https://github.com/NodeX-AR/AI-Project/blob/main/Sreehari/Sreehari_68.jpg?size=200)
 - Aravind A R (also known as pashu)
 - Suryajith P S (also known as panda)
 
