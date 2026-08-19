@@ -74,7 +74,7 @@ export default async function handler(req, res) {
   if (!apiKey) return addCors(500, { error: 'Server misconfigured: missing GEMINI_API_KEY environment variable' });
 
   // Standard Gemini REST Endpoint
-  const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+  const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
   // ─── NEW: System instruction for Pytml support ───
   const systemPrompt = `You are a support assistant for "Pytml" – a lightweight library that runs Python in the browser using WebAssembly.
