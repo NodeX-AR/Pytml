@@ -1,9 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" integrity="sha512-A05O24p533y1G351A2k6F3C8c1b698G5107f0f6E21b44474f8373b37a505b22f" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js" integrity="sha512-32TfB3K9d47B36873539958013149f128b1e4277b102213197607a3875f11812" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js" integrity="sha512-92S3Xq1j8I2w2Z31e+1b31C5L70014D8C55kY39C3048D5581J38D1C" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pytml Help Bot</title>
@@ -626,12 +627,14 @@
                 bubble.className = 'bubble';
 
                 if (role === 'bot') {
-                    bubble.innerHTML = formatBotText(text);
+                    bubble.innerHTML = window.DOMPurify ? DOMPurify.sanitize(formatBotText(text)) : formatBotText(text);
                     // highlight code blocks inside this bubble
-                    const codes = bubble.querySelectorAll('pre code');
-                    codes.forEach((block) => {
-                        hljs.highlightElement(block);
-                    });
+                    if (window.hljs) {
+                        const codes = bubble.querySelectorAll('pre code');
+                        codes.forEach((block) => {
+                            window.hljs.highlightElement(block);
+                        });
+                    }
                 } else {
                     bubble.textContent = text;
                 }
