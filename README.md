@@ -77,7 +77,7 @@ Privacy-first – no code ever leaves your browser
 Official Website =>
 [Website](https://pytml.js.org)
 
-Official live demo =>
+Official Live Demo =>
 [Demo](https://pytml.js.org/demo)
 
 ## License
