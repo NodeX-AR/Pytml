@@ -74,10 +74,10 @@ Privacy-first – no code ever leaves your browser
 15KB wrapper – Pyodide loads lazily, page isn't blocked
 
 ## Links
-Official Website:
+Official Website =>
 [Website](https://pytml.js.org)
 
-Official live demo
+Official live demo =>
 [Demo](https://pytml.js.org/demo)
 
 ## License
