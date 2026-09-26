@@ -75,7 +75,7 @@ Privacy-first – no code ever leaves your browser
 
 ## Links
 [Official Website](https://pytml.js.org)
-
+[Official Demo](https://pytml.js.org/demo)
 
 ## License
 Pytml is open-source under the Apache 2.0 License.
