@@ -74,8 +74,11 @@ Privacy-first – no code ever leaves your browser
 15KB wrapper – Pyodide loads lazily, page isn't blocked
 
 ## Links
-[Official Website](https://pytml.js.org)
-[Official Demo](https://pytml.js.org/demo)
+Official Website:
+[Website](https://pytml.js.org)
+
+Official live demo
+[Demo](https://pytml.js.org/demo)
 
 ## License
 Pytml is open-source under the Apache 2.0 License.
