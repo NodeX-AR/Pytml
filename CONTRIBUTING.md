@@ -21,11 +21,11 @@ The following is a set of guidelines for contributing to this project. These are
 ### Pull Requests
 
 1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/amazing-feature`).
+2. Create a new branch (`git checkout -b new`).
 3. Make your changes. Keep them focused on one thing.
 4. Test your changes locally.
 5. Commit with a clear message (`git commit -m 'Add some amazing feature'`).
-6. Push to your branch (`git push origin feature/amazing-feature`).
+6. Push to your branch (`git push origin new`).
 7. Open a Pull Request against the `main` branch.
 
 ## Development Setup
