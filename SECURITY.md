@@ -20,5 +20,5 @@ If you want real challenges then use our beta verion and say us how is it!
 ## Reporting a Vulnerability
 
 First off Thanks!
-You can open a [Issue](https://github.com/nodex-ar/pytml/issues) and report your bugs.
+You can open a [Issue](https://github.com/nodex-ar/pytml/issues) and report your bugs. or if its a security bug the report it on our [security advisory](https://github.com/NodeX-AR/Pytml/security/advisories/new).  
 If you are confident about how to fix it then fork this respo, fix the bug then open a pr. We will look after that !
