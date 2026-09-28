@@ -11,9 +11,10 @@ If you want real challenges then use our beta verion and say us how is it!
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.3.x   | :x:                |
-| 2.2.x   | :white_check_mark: |
-| 2.1.x   | :white_check_mark: |
+| 2.4     | :white_check_mark: |
+| 2.3     | :white_check_mark: |
+| 2.2     | :white_check_mark: |
+| 2.1     | :white_check_mark: |
 | < 2.0   | :x:                |
 
 ## Reporting a Vulnerability
