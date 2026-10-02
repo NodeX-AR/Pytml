@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml Calculator</title>
+  <script src="../pytml.js"></script>
+  <style>
+    body { font-family: system-ui; padding: 20px; max-width: 420px; margin: auto; }
+    .calculator { max-width: 280px; }
+    button { width: 52px; height: 52px; margin: 3px; font-size: 18px; cursor: pointer; }
+    #display { font-size: 28px; padding: 14px; background: #111; color: #fff; max-width: 250px; margin-bottom: 12px; text-align: right; border-radius: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="calculator">
+  <div id="display">0</div>
+
+  <py1>
+
+num1 = ""
+operator = ""
+
+<btn1>1</btn1> <btn2>2</btn2> <btn3>3</btn3> <btn4>+</btn4>
+<btn5>4</btn5> <btn6>5</btn6> <btn7>6</btn7> <btn8>-</btn8>
+<btn9>7</btn9> <btn10>8</btn10> <btn11>9</btn11> <btn12>=</btn12>
+<btn13>0</btn13> <btn14>C</btn14>
+
+
+def number(n):
+    global num1
+    num1 += str(n)
+    display.text = num1
+
+
+def set_operator(op):
+    global num1, operator
+    if operator != "" or num1 == "":
+        return
+    operator = op
+    num1 += op
+    display.text = num1
+
+
+def calculate():
+    global num1, operator
+    if operator == "":
+        return
+    parts = num1.split(operator)
+    if len(parts) != 2 or parts[0] == "" or parts[1] == "":
+        return
+    a = int(parts[0])
+    b = int(parts[1])
+    result = a + b if operator == "+" else a - b
+    display.text = str(result)
+    num1 = str(result)
+    operator = ""
+
+
+def clear():
+    global num1, operator
+    num1 = ""
+    operator = ""
+    display.text = "0"
+
+
+btn1.on("click", lambda e: number(1))
+btn2.on("click", lambda e: number(2))
+btn3.on("click", lambda e: number(3))
+btn5.on("click", lambda e: number(4))
+btn6.on("click", lambda e: number(5))
+btn7.on("click", lambda e: number(6))
+btn9.on("click", lambda e: number(7))
+btn10.on("click", lambda e: number(8))
+btn11.on("click", lambda e: number(9))
+btn13.on("click", lambda e: number(0))
+btn4.on("click", lambda e: set_operator("+"))
+btn8.on("click", lambda e: set_operator("-"))
+btn12.on("click", lambda e: calculate())
+btn14.on("click", lambda e: clear())
+
+  </py1>
+</div>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+
+</body>
+</html>

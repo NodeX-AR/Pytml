@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml Counter</title>
+  <script src="../pytml.js"></script>
+  <style>
+    body { font-family: system-ui; padding: 30px; max-width: 520px; margin: auto; }
+    button { padding: 12px 18px; margin: 4px; cursor: pointer; }
+    #count { font-size: 48px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+<h1>Counter</h1>
+<div id="count">0</div>
+
+<py1>
+
+count = 0
+
+<btn1>+1</btn1>
+<btn2>-1</btn2>
+<btn3>Reset</btn3>
+
+
+def increase(e):
+    global count
+    count += 1
+    count_element.text = str(count)
+
+
+def decrease(e):
+    global count
+    count -= 1
+    count_element.text = str(count)
+
+
+def reset(e):
+    global count
+    count = 0
+    count_element.text = "0"
+
+
+count_element = elements["count"]
+btn1.on("click", increase)
+btn2.on("click", decrease)
+btn3.on("click", reset)
+
+</py1>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+</body>
+</html>

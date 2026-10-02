@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Pytml preprocessor smoke</title>
+<script>
+window.loadPyodide = async function(){
+  return {
+    globals:{set(){},delete(){}},
+    ffi:{create_proxy(fn){ return fn; }},
+    runPythonAsync:async function(){},
+    loadPackage:async function(){},
+    loadPackagesFromImports:async function(){}
+  };
+};
+</script>
+<script src="./pytml.js"></script>
+</head><body>
+<div id="display">0</div>
+<py1>
+num = 7
+
+<btn1>One</btn1> <btn99>99</btn99>
+<input1>Type here</input1>
+<txt1>Text</txt1>
+
+def f():
+    return num
+</py1>
+</body></html>
