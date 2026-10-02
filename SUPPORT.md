@@ -1,7 +1,23 @@
 # Support
 
-Start with `README.md` and `Tutorial.md`. Runnable examples are in `examples/`.
+## Where to Get Help
 
-For a reproducible issue, include your browser, Pytml version, Pyodide version, a minimal HTML file, and the exact console error.
+- **Issues:** https://github.com/NodeX-AR/Pytml/issues
+- **Discussions:** https://github.com/NodeX-AR/Pytml/discussions
+- **Email:** aswanthr82@gmail.com
 
-Pytml 2.5 uses Pyodide `0.314.0.7`.
+## Before Asking
+
+Check the [README](https://github.com/NodeX-AR/Pytml#readme) and [Wiki](https://github.com/NodeX-AR/Pytml/wiki) first.
+
+## Report a Bug
+
+Open an issue with:
+- Browser version
+- Code snippet
+- Error message
+- Steps to reproduce
+
+---
+
+**Made with Hard work by the Pytml Community**

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- ========== PRIMARY SEO ========== -->
-  <title>Pytml 2.5.0 – Python + HTML</title>
-  <meta name="description" content="Pytml 2.5.0 brings Python + HTML together in the browser with Pyodide, inline &lt;pyN&gt; UI controls, DOM events, input(), and Python packages.">
-  <meta name="keywords" content="Pytml, Python HTML, run Python in browser, py1, py2, inline UI, Pyodide, WebAssembly Python, micropip, NumPy, pandas, Matplotlib, educational coding">
+  <title>Pytml – Lightweight Python in Browser</title>
+  <meta name="description" content="Pytml is a 15KB zero‑config JS library that runs Python in HTML. Compare vs PyScript & Flask – no server, faster load, simpler syntax. Perfect for demos & education.">
+  <meta name="keywords" content="Pytml, PyScript vs Pytml, Flask vs Pytml, run python in browser, lightweight python web, zero config python, python html bridge, pyodide, webassembly python, educational coding, static site python">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <meta name="author" content="Aswanth R (NodeX-AR)">
   <link rel="canonical" href="https://pytml.js.org/">
@@ -28,8 +28,8 @@
 
   <!-- ========== OPEN GRAPH ========== -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Pytml 2.5.0 – Python + HTML">
-  <meta property="og:description" content="Python + HTML in the browser. Pytml 2.5 adds inline UI controls, DOM events, input(), and package support powered by Pyodide.">
+  <meta property="og:title" content="Pytml – Lightweight Python in Browser (vs PyScript & Flask)">
+  <meta property="og:description" content="Run Python in HTML with zero config. Compare with PyScript & Flask – 15KB, no server, instant setup. Honest, fast, lazy.">
   <meta property="og:url" content="https://pytml.js.org/">
   <meta property="og:image" content="https://pytml.js.org/preview.png">
   <meta property="og:image:width" content="1200">
@@ -40,8 +40,8 @@
 
   <!-- ========== TWITTER CARD ========== -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Pytml 2.5.0 – Python + HTML">
-  <meta name="twitter:description" content="Python + HTML in the browser with inline UI controls, DOM interaction, input(), and Pyodide packages.">
+  <meta name="twitter:title" content="Pytml – Lightweight Python in Browser (vs PyScript & Flask)">
+  <meta name="twitter:description" content="Zero‑config Python in HTML – compare vs PyScript & Flask. 15KB, faster, simpler, no backend.">
   <meta name="twitter:image" content="https://pytml.js.org/preview.png">
 
   <!-- ========== ENHANCED SCHEMA.ORG WITH ZENODO CITATION ========== -->
@@ -58,13 +58,13 @@
       },
       "name": "Pytml",
       "alternateName": "Python in HTML Bridge",
-      "headline": "Pytml 2.5.0 – Python + HTML in the Browser",
-      "description": "Pytml 2.5.0 is a client-side JavaScript library that runs Python in HTML with Pyodide and adds simple inline UI declarations for interactive pages.",
-      "keywords": ["Pytml", "Python in HTML", "Python in Browser", "Pyodide", "inline UI", "micropip"],
+      "headline": "Lightweight Python in Browser – Honest Comparison vs PyScript & Flask",
+      "description": "Pytml is a 15KB zero-config JS library that runs Python in HTML via WebAssembly. Unlike PyScript (heavy) or Flask (needs server), Pytml is instant, tiny, and works on any static host.",
+      "keywords": ["Pytml", "PyScript alternative", "Flask alternative", "Python in Browser", "Zero Config Python"],
       "applicationCategory": "DeveloperApplication",
-      "softwareVersion": "2.5.0",
+      "softwareVersion": "2.0",
       "datePublished": "2026-06-04",
-      "dateModified": "2026-10-02",
+      "dateModified": "2026-06-18",
       "license": "https://github.com/NodeX-AR/Pytml/blob/main/LICENSE",
       "url": "https://pytml.js.org/",
       "author": {
@@ -168,7 +168,7 @@
         {
           "@type": "ListItem",
           "position": 2,
-          "name": "Pytml 2.5.0"
+          "name": "Pytml vs PyScript & Flask"
         }
       ]
     },
@@ -180,7 +180,7 @@
           "name": "What is the actual bundle size of Pytml?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Pytml 2.5 keeps the public loader small and loads the Pyodide runtime from its configured CDN. The loader also starts the CDN connection and runtime download early so the browser can boot Python as soon as possible."
+            "text": "The Pytml wrapper itself is ~15KB minified. The Pyodide runtime (~6MB) is loaded lazily from CDN only when you actually run Python code, so initial page load isn't blocked."
           }
         },
         {
@@ -204,7 +204,7 @@
           "name": "How does Pytml handle errors and debugging?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Python output and errors are rendered only when there is something to show. Runtime and syntax errors can appear with their Python traceback so debugging stays available without a permanent console panel."
+            "text": "Python tracebacks are captured and rendered directly in the browser terminal box. Syntax errors, runtime exceptions, and import errors all appear with line numbers and stack traces, just like a local Python REPL."
           }
         },
         {
@@ -524,7 +524,7 @@
           <li><a href="#features" class="hover:text-accent transition">Features</a></li>
           <li><a href="#code" class="hover:text-accent transition">Code</a></li>
           <li><a href="#faq" class="hover:text-accent transition">FAQ</a></li>
-          <li><a href="./demo.html" class="hover:text-accent transition">Demo</a></li>
+          <li><a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" rel="noopener noreferrer" class="hover:text-accent transition">Demo</a></li>
           <li><a href="https://github.com/NodeX-AR/Pytml" target="_blank" rel="noopener noreferrer" class="hover:text-accent transition">GitHub</a></li>
         </ul>
       </nav>
@@ -540,26 +540,26 @@
         <div class="flex flex-col md:flex-row items-center gap-6 md:gap-12">
           <div class="flex-1 text-center md:text-left">
             <div class="fade-up mt-3 md:mt-4">
-              <h1 class="text-base sm:text-xl md:text-2xl text-gray-300 mono">$> Python + HTML – no JavaScript for the basics</h1>
+              <h1 class="text-base sm:text-xl md:text-2xl text-gray-300 mono">$> Run Python in your browser – no backend</h1>
             </div>
             <div class="fade-up mt-2">
-              <span class="badge-term"><i class="fas fa-bolt text-accent mr-1"></i> Python + HTML with Pyodide</span>
+              <span class="badge-term"><i class="fas fa-bolt text-accent mr-1"></i> Lightweight alternative to PyScript & Flask</span>
             </div>
             <div class="fade-up mt-3">
               <p class="text-gray-400 max-w-lg mx-auto md:mx-0 leading-relaxed text-sm sm:text-base">
-                A zero‑config <strong>Python + HTML runtime</strong> that lets you embed <strong>Python code</strong> directly in your <strong>HTML</strong>.
-                Handles <code class="text-accent">print()</code>, <code class="text-accent">input()</code>, DOM events, inline UI controls, and errors – live, in the browser.
+                A zero‑config <strong>15KB JavaScript library</strong> that lets you embed <strong>Python code</strong> directly in your <strong>HTML</strong>.
+                Handles <code class="text-accent">print()</code>, <code class="text-accent">input()</code>, and errors – live, in the browser.
                 <span class="block mt-1 text-xs text-gray-500">No server. No heavy frameworks. Just <code class="text-accent">&lt;py&gt;</code> and go.</span>
               </p>
             </div>
             <div class="fade-up mt-5 flex flex-wrap gap-2 sm:gap-3 justify-center md:justify-start">
-              <a href="./demo.html" class="btn-term"><i class="fas fa-play"></i> Demos</a>
+              <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-play"></i> Live Demo</a>
               <a href="#compare" class="btn-term"><i class="fas fa-balance-scale"></i> Compare</a>
               <a href="#code" class="btn-term"><i class="fas fa-code"></i> See Code</a>
               <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub</a>
             </div>
             <div class="fade-up mt-4 flex flex-wrap gap-2 justify-center md:justify-start">
-              <span class="badge-term"><i class="fas fa-code mr-1"></i> Python + HTML</span>
+              <span class="badge-term"><i class="fas fa-weight-hanging mr-1"></i> 15KB wrapper</span>
             </div>
           </div>
           <!-- FIXED: added items-center and mx-auto to ensure dead-center on mobile -->
@@ -577,21 +577,21 @@
     <section class="py-16 sm:py-20 px-4 sm:px-6 border-t border-white/5">
       <div class="max-w-5xl mx-auto">
         <div class="fade-up text-center">
-          <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">//</span> The Browser Bridge</h2>
+          <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent">//</span> The Lazy Bridge</h2>
         </div>
         <div class="grid sm:grid-cols-2 gap-6 sm:gap-8 mt-8">
           <div class="fade-up space-y-4 text-gray-300 leading-relaxed text-sm sm:text-base">
             <p><strong>Pytml</strong> is a minimal <strong>JavaScript library</strong> that lets you write <span class="text-accent font-bold">Python inside your HTML</span> – no server, no setup.</p>
-            <p>It uses <span class="text-accent">Pyodide</span> (Python compiled to <strong>WebAssembly</strong>) and adds browser bindings for <code class="text-accent">print()</code>, <code class="text-accent">input()</code>, DOM elements, events, and inline <code class="text-accent">&lt;pyN&gt;</code> controls.</p>
+            <p>It wraps <span class="text-accent">Pyodide</span> (Python compiled to <strong>WebAssembly</strong>) and automatically redirects <code class="text-accent">print()</code> to a nice terminal box, and turns <code class="text-accent">input()</code> into a live form.</p>
             <p>Built by <span class="text-accent">Aswanth R (NodeX‑AR)</span> – a Class 12 student who wanted a easy and fast way to show <strong>Python projects</strong> live on the web.</p>
           </div>
           <div class="fade-up card">
             <h3 class="text-base sm:text-lg font-bold font-heading mb-2">Why it exists</h3>
             <ul class="space-y-2 text-gray-400 text-xs sm:text-sm mono">
-              <li><span class="text-accent">➜</span> No build step for simple pages</li>
-              <li><span class="text-accent">➜</span> Python lives directly in <span class="text-white">&lt;pyN&gt;</span></li>
-              <li><span class="text-accent">➜</span> Real DOM and browser events</li>
-              <li><span class="text-accent">➜</span> micropip + WebAssembly Python packages</li>
+              <li><span class="text-accent">➜</span> No Flask, no Django, no server</li>
+              <li><span class="text-accent">➜</span> Just <span class="text-white">&lt;py&gt;code&lt;/py&gt;</span></li>
+              <li><span class="text-accent">➜</span> Works offline after first load</li>
+              <li><span class="text-accent">➜</span> Less than 15KB of JS</li>
             </ul>
           </div>
         </div>
@@ -603,7 +603,7 @@
       <div class="max-w-5xl mx-auto">
         <div class="fade-up text-center">
           <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold font-heading mb-3"><span class="text-accent"></span>Comparison</h2>
-          <p class="text-gray-400 max-w-2xl mx-auto text-sm sm:text-base">Pytml is designed for client-side Python + HTML. It uses Pyodide for Python/WebAssembly and adds a small browser-facing layer for DOM access, events, input, and inline UI controls.</p>
+          <p class="text-gray-400 max-w-2xl mx-auto text-sm sm:text-base">Just real trade‑offs. Pytml is <strong>not</strong> a Flask replacement for backends, and it's <strong>not</strong> as feature‑heavy as PyScript. But for <strong>static pages, demos, and education</strong>, it wins on speed, size, and simplicity.</p>
         </div>
         <div class="fade-up mt-8 card overflow-x-auto compare-table-wrap">
           <table class="compare-table min-w-[420px]">
@@ -611,7 +611,7 @@
               <tr>
                 <th>Feature</th>
                 <th>Pytml</th>
-                <th>other Python-in-browser tools</th>
+                <th>PyScript</th>
                 <th>Flask</th>
               </tr>
             </thead>
@@ -629,32 +629,32 @@
                 <td><span class="cross">✘</span> Yes (backend)</td>
               </tr>
               <tr>
-                <td class="highlight">Pytml layer</td>
-                <td><span class="check">✔</span> Lightweight browser layer</td>
+                <td class="highlight">Wrapper size</td>
+                <td><span class="check">✔</span> <strong>~15 KB</strong></td>
                 <td><span class="cross">~</span> Larger bundle</td>
                 <td><span class="cross">—</span> N/A</td>
               </tr>
               <tr>
                 <td class="highlight">Pyodide load</td>
-                <td><span class="check">✔</span> Early + parallel</td>
+                <td><span class="check">✔</span> Lazy</td>
                 <td><span class="cross">✘</span> Eager</td>
                 <td><span class="cross">—</span> N/A</td>
               </tr>
               <tr>
                 <td class="highlight">Configuration</td>
-                <td><span class="check">✔</span> Simple (<code>&lt;pyN&gt;</code>)</td>
+                <td><span class="check">✔</span> Zero (<code>&lt;py&gt;</code>)</td>
                 <td><span class="cross">~</span> <code>&lt;py-config&gt;</code></td>
                 <td><span class="cross">~</span> Full structure</td>
               </tr>
               <tr>
                 <td class="highlight">Best for</td>
-                <td><span class="check">✔</span> Interactive pages, demos, education</td>
+                <td><span class="check">✔</span> Demos, education</td>
                 <td><span class="check">✔</span> Complex browser apps</td>
                 <td><span class="check">✔</span> Full‑stack apps</td>
               </tr>
             </tbody>
           </table>
-          <p class="text-xs text-gray-500 mt-4 text-center">* Pytml 2.5 uses Pyodide 0.314.0.7 from the configured CDN and starts the runtime connection early during page boot.</p>
+          <p class="text-xs text-gray-500 mt-4 text-center">* Pyodide (~6MB) loaded from CDN – same for both. Pytml adds a <strong>~15KB</strong> wrapper + lazy loading.</p>
         </div>
       </div>
     </section>
@@ -667,11 +667,11 @@
         </div>
         <div class="grid sm:grid-cols-2 gap-6 sm:gap-8">
           <div class="fade-up space-y-3 text-gray-300 leading-relaxed mono text-xs sm:text-sm">
-            <div class="flex gap-3"><span class="text-accent font-bold">1.</span> Starts the CDN connection and Pyodide bootstrap early</div>
-            <div class="flex gap-3"><span class="text-accent font-bold">2.</span> Sets up <code>print()</code>, <code>input()</code>, and DOM bindings</div>
-            <div class="flex gap-3"><span class="text-accent font-bold">3.</span> Finds <code>&lt;pyN&gt;</code> blocks and converts inline UI tags to DOM elements</div>
-            <div class="flex gap-3"><span class="text-accent font-bold">4.</span> Runs Python and handles output, input, events, and errors</div>
-            <div class="flex gap-3"><span class="text-accent font-bold">5.</span> Reveals the page when the Python runtime is ready</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">1.</span> Loads <strong>Pyodide</strong> (WebAssembly) from CDN</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">2.</span> Overrides <code>print()</code> and <code>input()</code></div>
+            <div class="flex gap-3"><span class="text-accent font-bold">3.</span> Finds all <code>py script</code> or <code>&lt;script type="text/python"&gt;</code> tags</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">4.</span> Runs Python, catches output and errors</div>
+            <div class="flex gap-3"><span class="text-accent font-bold">5.</span> Displays everything in a styled terminal</div>
           </div>
           <div class="fade-up code-box">
 &lt;!DOCTYPE html&gt;
@@ -680,17 +680,11 @@
     &lt;script src="https://pytml.vercel.app/pytml.js"&gt;&lt;/script&gt;
   &lt;/head&gt;
   &lt;body&gt;
-    &lt;div id="display"&gt;0&lt;/div&gt;
-    &lt;py1&gt;
-&lt;btn1&gt;1&lt;/btn1&gt;
-&lt;btn2&gt;2&lt;/btn2&gt;
-
-def show(value):
-    display.text = str(value)
-
-btn1.on("click", lambda e: show(1))
-btn2.on("click", lambda e: show(2))
-    &lt;/py1&gt;
+    &lt;py&gt;
+print("Hello, world!")
+name = input("Your name? ")
+print(f"Hi {name}!")
+    &lt;/py&gt;
   &lt;/body&gt;
 &lt;/html&gt;
           </div>
@@ -706,9 +700,9 @@ btn2.on("click", lambda e: show(2))
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div class="fade-up card text-center"><i class="fas fa-bolt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Zero config</p><p class="text-xs text-gray-500">Just a script tag</p></div>
-          <div class="fade-up card text-center"><i class="fas fa-terminal text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Python I/O</p><p class="text-xs text-gray-500">print() and input()</p></div>
-          <div class="fade-up card text-center"><i class="fas fa-hand-pointer text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Browser UI</p><p class="text-xs text-gray-500">DOM, pointer and touch events</p></div>
-          <div class="fade-up card text-center"><i class="fas fa-cube text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Packages</p><p class="text-xs text-gray-500">micropip + Pyodide wheels</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-terminal text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Real I/O</p><p class="text-xs text-gray-500">print() and input() work</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-mobile-alt text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Any device</p><p class="text-xs text-gray-500">Works on phones too</p></div>
+          <div class="fade-up card text-center"><i class="fas fa-code text-accent text-2xl mb-2"></i><p class="text-sm font-semibold">Open source</p><p class="text-xs text-gray-500">Apache 2.0</p></div>
         </div>
       </div>
     </section>
@@ -786,7 +780,7 @@ btn2.on("click", lambda e: show(2))
         <div class="space-y-4">
           <div class="fade-up card">
             <h3 class="text-sm font-bold">What is the actual bundle size of Pytml?</h3>
-            <p class="text-xs text-gray-400 mt-1">Pytml 2.5 uses a lightweight browser loader with Pyodide 0.314.0.7. Its CDN connection and Pyodide bootstrap begin early, while interactive controls remain locked until Python is ready.</p>
+            <p class="text-xs text-gray-400 mt-1">The Pytml wrapper itself is <strong>~15KB</strong> minified. The Pyodide runtime (~6MB) is loaded lazily from CDN only when you actually run Python code, so initial page load isn't blocked.</p>
           </div>
           <div class="fade-up card">
             <h3 class="text-sm font-bold">Can I use Pytml with React, Vue, or other JS frameworks?</h3>
@@ -798,7 +792,7 @@ btn2.on("click", lambda e: show(2))
           </div>
           <div class="fade-up card">
             <h3 class="text-sm font-bold">How does Pytml handle errors and debugging?</h3>
-            <p class="text-xs text-gray-400 mt-1">Python output and errors are rendered only when there is something to show. Runtime and syntax errors can appear with their Python traceback so debugging stays available without a permanent console panel.</p>
+            <p class="text-xs text-gray-400 mt-1">Python tracebacks are captured and rendered directly in the browser terminal box. Syntax errors, runtime exceptions, and import errors all appear with line numbers and stack traces, just like a local Python REPL.</p>
           </div>
           <div class="fade-up card">
             <h3 class="text-sm font-bold">Is there any server-side component or data sent to a backend?</h3>
@@ -824,7 +818,7 @@ btn2.on("click", lambda e: show(2))
           <p class="text-gray-300 max-w-xl mx-auto mb-6 sm:mb-8 text-sm sm:text-base">See Pytml in action – run <strong>Python code</strong> live in your browser.</p>
         </div>
         <div class="fade-up flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-5">
-          <a href="./demo.html" class="btn-term"><i class="fas fa-globe"></i> Demos</a>
+          <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="btn-term"><i class="fas fa-globe"></i> Live Demo</a>
           <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="btn-term"><i class="fab fa-github"></i> GitHub Repo</a>
           <a href="https://dev.to/nodex-ar/pytml-running-python-in-the-browser-without-a-backend-1nn4" target="_blank" class="btn-term"><i class="fas fa-pen"></i> DEV Article</a>
           <a href="https://devpost.com/software/pytml" target="_blank" class="btn-term"><i class="fas fa-trophy"></i> Devpost</a>
@@ -842,7 +836,7 @@ btn2.on("click", lambda e: show(2))
     <p>
       <a href="https://a-r.is-a.dev" target="_blank" class="footer-link">Aswanth R (NodeX-AR)</a> &nbsp;·&nbsp; 
       <a href="https://github.com/NodeX-AR/Pytml" target="_blank" class="footer-link">GitHub</a> &nbsp;·&nbsp; 
-      <a href="./demo.html" class="footer-link">Demos</a> &nbsp;·&nbsp;
+      <a href="https://nodex-ar.github.io/Pytml/demo.html" target="_blank" class="footer-link">Live Demo</a> &nbsp;·&nbsp;
       <a href="https://github.com/NodeX-AR/Pytml/blob/main/README.md" target="_blank" class="footer-link">Docs</a>
     </p>
     <p class="mt-1 text-gray-700">Open-source under Apache 2.0 &nbsp;·&nbsp; 2026</p>
@@ -964,7 +958,7 @@ btn2.on("click", lambda e: show(2))
   </div>
 
   <!-- Button linking to /bot -->
-  <a href="./bot.html" class="chat-btn" aria-label="Open chat support">
+  <a href="https://pytml.js.org/bot" class="chat-btn" aria-label="Open chat support">
     💬
   </a>
 </div>

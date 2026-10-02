@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://pytml.js.org/</loc><lastmod>2026-10-02</lastmod><changefreq>weekly</changefreq><priority>1</priority></url>
-  <url><loc>https://pytml.js.org/demo.html</loc><lastmod>2026-10-02</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://pytml.js.org/examples/calculator.html</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://pytml.js.org/examples/counter.html</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://pytml.js.org/examples/greeting.html</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://pytml.js.org/examples/joystick.html</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://pytml.js.org/examples/packages.html</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://pytml.js.org/examples/multiple-programs.html</loc><lastmod>2026-10-02</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url>
+    <loc>https://pytml.js.org/</loc>
+    <lastmod>2026-06-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://pytml.js.org/demo.html</loc>
+    <lastmod>2026-06-22</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
 </urlset>

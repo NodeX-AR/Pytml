@@ -1,130 +1,87 @@
-# Pytml 2.5
+# PYTML - Python in Your Browser
+[![Wikidata](https://img.shields.io/badge/Wikidata-Q140185675-006699?logo=wikidata&logoColor=white)](https://www.wikidata.org/wiki/Q140185675)
+[![NUmber of times Pytml used](https://img.shields.io/endpoint?url=https://pytml.vercel.app/api/count)](https://pytml.vercel.app/api/count)
+[![Website](https://img.shields.io/badge/🌐%20Website-pytml.js.org-3b82f6?style=for-the-badge&logo=google-chrome&logoColor=white)](https://pytml.js.org/)
+[![GitHub stars](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-yellow?style=for-the-badge&logo=github&logoColor=black)](https://github.com/NodeX-AR/Pytml)
+[![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/NodeX-AR/Pytml/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/NodeX-AR/Pytml)
 
-**Python + HTML, powered by Pyodide.**
+**Run Python in your browser with zero configuration – no server, just a script tag.**
 
-Pytml lets you run Python directly from an HTML page and connect Python to real browser elements without adding a JavaScript framework.
+Pytml is a lightweight (~15KB) JavaScript library that acts as a bridge between Python and HTML via WebAssembly. Drop a single script tag into any static page, write your logic inside `<py>` tags, and it runs natively in the browser.
 
-## CDN usage
+---
+
+##  Quick Start
+
+Add one line to your HTML:
 
 ```html
 <script src="https://pytml.vercel.app/pytml.js"></script>
 ```
-
-For local development, use the repository's `./pytml.js`.
-
-## Pytml 2.5 inline UI syntax
-
-Pytml 2.5 adds a lightweight preprocessor for numbered Python blocks. The syntax is intentionally small and keeps normal Python intact.
-
+## Usage
+Option 1: Inline Python (Recommended for mobile/local)
 ```html
-<div id="display">0</div>
-
-<py1>
-
-number = ""
-
-<btn1>1</btn1>
-<btn2>2</btn2>
-<btn3>3</btn3>
-
-
-def press(n):
-    global number
-    number += str(n)
-    display.text = number
-
-
-btn1.on("click", lambda e: press(1))
-btn2.on("click", lambda e: press(2))
-btn3.on("click", lambda e: press(3))
-
-</py1>
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <py>
+print("Hello, world!")
+name = input("Your name? ")
+print(f"Hi {name}!")
+    </py>
+</body>
+</html>
 ```
-
-During preprocessing:
-
-1. `<btn1>1</btn1>` becomes a real `<button id="btn1">1</button>`.
-2. The generated button is inserted immediately before the `<py1>` element.
-3. The custom tag is removed from the Python source.
-4. The remaining Python text, including indentation, is passed to Pyodide unchanged.
-5. Pytml's existing DOM binding exposes `btn1`, `btn2`, `btn3`, and `display` as Python objects.
-
-Supported inline tags currently include:
-
-- `<btn1>...</btn99>` (and higher numbered IDs)
-- `<input1>...</input99>` (text input by default; HTML input attributes are copied)
-- `<txt1>...</txt99>` (text-input shortcut)
-
-The numbered IDs must be unique within the document.
-
-See `docs/COMPILER.md` for the preprocessing model and `docs/CONTROLS.md` for the inline control vocabulary.
-
-## Multiple programs
-
-`<py>`, `<py1>`, `<py2>`, `<py3>`, and so on are **program identifiers, not filenames**.
-
-Blocks with the same identifier run in the same Python interpreter state:
-
+Option 2: External Python File (HTTP/HTTPS only)
 ```html
-<py1>
-value = 10
-</py1>
-
-<py2>
-other = 20
-</py2>
-
-<py1>
-value += 5
-</py1>
-
-<py2>
-print(value + other)
-</py2>
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <script type="text/python" src="script.py"></script>
+</body>
+</html>
 ```
-
-## Browser features
-
-Pytml 2.5 provides Python access to HTML IDs, values, text, HTML, classes, attributes, focus, scrolling, forms, clipboard helpers, storage, timers, gamepads, touch/pointer/mouse/keyboard/wheel events, drag/drop, media controls, and a touch-friendly joystick helper.
-
-## Packages
-
-Pytml uses the Pyodide package environment and `micropip`:
-
-```python
-import micropip
-await micropip.install("numpy")
+```py
+name = input("Enter your name: ")
+age = input("Enter your age: ")
+print(f"Hello {name}, you are {age} years old!")
 ```
+## Important for Local Users (file:// protocol)
+If you're running HTML locally from your device (mobile or desktop):
 
-The package layer is backed by Pyodide's WebAssembly Python distribution. Native-extension packages need compatible WebAssembly wheels.
+Use inline <py> tags — This is the only method that works with file:// protocol
 
-## Pytml 2.5 vs 3.0
+## Features
+Zero config – just add one script tag
 
-Pytml 2.5 adds a focused inline UI **preprocessor** on top of the existing runtime. It is not a full HTML/Python language compiler.
+Real I/O – print() and input() work live in the browser
 
-Pytml 3.0 is planned as the full document compiler and language layer.
+Full error tracebacks – debug like a local REPL
 
-## Local development
+Package support – NumPy, Pandas, Matplotlib via micropip
 
-From the repository root:
+Privacy-first – no code ever leaves your browser
 
-```bash
-npm run build
-npm test
-```
+15KB wrapper – Pyodide loads lazily, page isn't blocked
 
-A simple local server can be started with Python:
+## Links
+Official Website =>
+[Website](https://pytml.js.org)
 
-```bash
-python -m http.server 8080
-```
-
-Then visit `http://localhost:8080/`.
+Official Live Demo =>
+[Demo](https://pytml.js.org/demo)
 
 ## License
+Pytml is open-source under the Apache 2.0 License.
 
-Apache-2.0. See `LICENSE`.
-
-## Website
-
-Pytml 2.5 keeps the original Pytml website design as the main `index.html`. The page copy and examples are updated for the 2.5 runtime and inline `<pyN>` UI syntax. The demo gallery is available at `demo.html`.
+## Support
+**If you find Pytml useful, consider giving it a star on GitHub!**

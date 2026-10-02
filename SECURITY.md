@@ -1,9 +1,24 @@
-# Security
+# Security Policy
 
-Pytml executes Python in the browser through Pyodide/WebAssembly. Python code runs with the normal capabilities of the page that loaded Pytml.
+## Supported Versions
 
-Pytml does not intentionally send Python source, DOM contents, form values, or Python output to a Pytml backend. Pyodide and packages may be downloaded from their configured CDN/package endpoints.
+I recommend to use stable version.
 
-Do not execute untrusted Pytml code on pages that contain secrets or privileged browser state.
+If you want real challenges then use our beta verion and say us how is it!
+```html
+<script src="https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@Beta-Version/pytml.js"></script>
+```
 
-For security reports, contact the maintainers privately rather than posting sensitive details publicly.
+| Version | Supported          |
+| ------- | ------------------ |
+| 2.4     | :white_check_mark: |
+| 2.3     | :white_check_mark: |
+| 2.2     | :white_check_mark: |
+| 2.1     | :white_check_mark: |
+| < 2.0   | :x:                |
+
+## Reporting a Vulnerability
+
+First off Thanks!
+You can open a [Issue](https://github.com/nodex-ar/pytml/issues) and report your bugs or if its a security bug the report it on our [security advisory](https://github.com/NodeX-AR/Pytml/security/advisories/new).  
+If you are confident about how to fix it then fork this respo, fix the bug then open a pr. We will look after that !
