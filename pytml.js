@@ -14,7 +14,7 @@ fetch('https://pytml.vercel.app/api/count')
   'use strict';
 
   const VERSION = '2.5.0';
-  const PYODIDE_VERSION = '0.314.0.7';
+  const PYODIDE_VERSION = '314.0.7';
   const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
   const PYODIDE_SCRIPT = `${PYODIDE_INDEX}pyodide.js`;
   // Pytml supports local file:// pages when Python is inline and the runtime is loaded over HTTPS.
