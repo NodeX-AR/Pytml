@@ -14,14 +14,14 @@ fetch('https://pytml.vercel.app/api/count')
   'use strict';
 
   const VERSION = '2.5.0';
-  const PYODIDE_VERSION = '0.314.0.7';
+  const PYODIDE_VERSION = '314.0.7';
   const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
   const PYODIDE_SCRIPT = `${PYODIDE_INDEX}pyodide.js`;
-  // Pytml supports local file:// pages when Python is inline and the runtime is loaded over HTTPS.
+  // file:// is supported for inline Python. Pyodide itself stays on the HTTPS CDN.
   const IS_FILE_PROTOCOL = typeof location !== 'undefined' && location.protocol === 'file:';
   const PY_BLOCK = /^py(?:\d+)?$/i;
 
-  // --- Speed: start the CDN connection and script download immediately, before DOMContentLoaded ---
+  // --- Network helpers. Pyodide is loaded only when a Python block is present. ---
   let _pyodideScriptPromise = null;
 
   function preconnect() {
@@ -35,13 +35,6 @@ fetch('https://pytml.vercel.app/api/count')
       if (rel === 'preconnect') link.crossOrigin = 'anonymous';
       document.head.appendChild(link);
     }
-    // Preload the 6MB wasm so it downloads in parallel with the JS bootstrap.
-    const wasm = document.createElement('link');
-    wasm.rel = 'preload';
-    wasm.href = `${PYODIDE_INDEX}pyodide.asm.wasm`;
-    wasm.as = 'fetch';
-    wasm.crossOrigin = 'anonymous';
-    document.head.appendChild(wasm);
   }
 
   function preloadPyodideScript() {
@@ -139,10 +132,13 @@ fetch('https://pytml.vercel.app/api/count')
     });
   }
 
-  // Fire immediately — these run before DOMContentLoaded.
-  preconnect();
-  installBootState();
-  preloadPyodideScript();
+  function pageHasPythonBlocks() {
+    if (document.querySelector('script[type="text/python"]')) return true;
+    return Array.from(document.querySelectorAll('*')).some((el) => {
+      const tag = el.tagName?.toLowerCase?.() || '';
+      return PY_BLOCK.test(tag);
+    });
+  }
 
   const DEFAULT_STYLE = `
     .pytml-output{box-sizing:border-box;background:#0a0e27;color:#e7e9ee;border:1px solid rgba(102,126,234,.28);border-radius:14px;padding:16px;margin:16px 0;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;max-height:420px;overflow:auto}
@@ -470,15 +466,23 @@ def _bind_all_dom(namespace):
     }
 
     async _start() {
+      preconnect();
+      installBootState();
       this.installStyles();
+
+      // Always use the remote Pyodide CDN from file:// pages. This avoids
+      // trying to resolve Pyodide assets relative to a local file origin.
+      const indexURL = IS_FILE_PROTOCOL
+        ? PYODIDE_INDEX
+        : this.options.pyodideIndexURL;
+
       await this.loadPyodideScript();
-      this.pyodide = await global.loadPyodide({ indexURL: this.options.pyodideIndexURL });
+      this.pyodide = await global.loadPyodide({ indexURL });
       global.pyodide = this.pyodide;
       global.pytmlInstance = this;
       global.pytml = this;
       await this.installPythonModule();
       await this.setupPythonEnvironment();
-      await this.pyodide.loadPackage('micropip');
       this.ready = true;
       await this.runAllPythonScripts();
       clearBootState();
@@ -670,7 +674,7 @@ async def _pytml_run_source(source):
         if (block.src) {
           const resolved = new URL(block.src, document.baseURI);
           if (location.protocol === 'file:' && resolved.protocol === 'file:') {
-            throw new Error(`Cannot fetch local Python file "${block.src}" from file://. Put the Python inline in <py> / <pyN>, or use an HTTPS URL.`);
+            throw new Error(`Pytml cannot read a separate local Python file ("${block.src}") from file:// because browsers block local-file fetches. Use inline <py> / <pyN> code or an HTTPS src.`);
           }
           const response = await fetch(resolved.href, {
             credentials: IS_FILE_PROTOCOL ? 'omit' : 'same-origin',
@@ -870,11 +874,20 @@ async def _pytml_run_source(source):
   let singleton=null;
   function start(options={}) { if(!singleton) singleton=new Pytml(options); return singleton.start(); }
   async function boot() {
-    try {
-      await start();
-    } catch (err) {
-      console.error('[PYTML] boot failed:', err);
-      failBootState('Python failed to load. Refresh to retry.');
+    const run = async () => {
+      if (!pageHasPythonBlocks()) return;
+      try {
+        await start();
+      } catch (err) {
+        console.error('[PYTML] boot failed:', err);
+        failBootState(err?.message || 'Python failed to load. Refresh to retry.');
+      }
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run, { once: true });
+    } else {
+      run();
     }
   }
 
