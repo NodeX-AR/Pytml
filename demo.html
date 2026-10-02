@@ -1,62 +1,36 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Pytml - Demo</title>
-    <script src="https://pytml.vercel.app/pytml.js"></script>
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://pytml.js.org/sitemap.xml" />
-    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
-    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32">
-    <link rel="icon" type="image/png" href="/favicon-48x48.png" sizes="48x48">
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="icon" type="image/png" href="/android-chrome-192x192.png" sizes="192x192">
-    <link rel="icon" type="image/png" href="/android-chrome-512x512.png" sizes="512x512">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#3b82f6">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <style>
-        body {
-            margin: 0;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-        
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        
-        .card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            text-align: center;
-        }
-        
-        h1 {
-            margin: 0 0 10px 0;
-            color: white;
-        }
-        
-        p {
-            color: rgba(255,255,255,0.8);
-            margin-bottom: 30px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml — Demos</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #070a12; color: #eef2ff; }
+    main { max-width: 1100px; margin: auto; padding: 50px 24px; }
+    a { color: inherit; text-decoration: none; }
+    .back { color: #93c5fd; }
+    h1 { font-size: 48px; margin: 16px 0 8px; }
+    .lead { color: #9ca8bc; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap: 18px; margin-top: 32px; }
+    .card { border: 1px solid #202941; background: #0e1322; border-radius: 16px; padding: 22px; }
+    .card h2 { margin-top: 0; }
+    .card p { color: #9ca8bc; line-height: 1.55; min-height: 48px; }
+    .open { display: inline-block; margin-top: 10px; background: #3b82f6; padding: 10px 14px; border-radius: 10px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="card">
-            <h1>Pytml Demo</h1>
-            <p>All inputs and output are from script.py</p>
-        </div>
+  <main>
+    <a class="back" href="index.html">← Back to Pytml</a>
+    <h1>Pytml Demos</h1>
+    <p class="lead">Runnable examples using the public Pytml runtime at https://pytml.vercel.app/pytml.js.</p>
+    <div class="grid">
+      <article class="card"><h2>Calculator</h2><p>A simple calculator using numbered Pytml buttons inside &lt;py1&gt;.</p><a class="open" href="examples/calculator.html">Open demo →</a></article>
+      <article class="card"><h2>Counter</h2><p>Small state example showing Python event handlers and DOM updates.</p><a class="open" href="examples/counter.html">Open demo →</a></article>
+      <article class="card"><h2>Greeting</h2><p>Use browser input and Python to build a tiny interactive page.</p><a class="open" href="examples/greeting.html">Open demo →</a></article>
+      <article class="card"><h2>Joystick</h2><p>Pointer/touch joystick controls exposed to Python.</p><a class="open" href="examples/joystick.html">Open demo →</a></article>
+      <article class="card"><h2>Packages</h2><p>Install Python packages through micropip and use them in the browser.</p><a class="open" href="examples/packages.html">Open demo →</a></article>
     </div>
-    
-    <script type="text/python" src="script.py"></script>
+  </main>
 </body>
 </html>

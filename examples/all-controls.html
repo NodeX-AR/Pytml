@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pytml 2.5 All Controls</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { font-family: system-ui; max-width: 900px; margin: 25px auto; padding: 20px; }
+    section { border:1px solid #ddd; border-radius:12px; padding:16px; margin:14px 0; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    #scroll { height:120px; overflow:auto; border:1px solid #bbb; padding:10px; }
+    #stick { width:150px; height:150px; border-radius:50%; background:#ddd; }
+  </style>
+</head>
+<body>
+  <h1>Everyday browser controls</h1>
+  <section>
+    <div class="row">
+      <input id="text_box" placeholder="Text bar">
+      <input id="number_box" type="number" value="10">
+      <input id="password_box" type="password" value="secret">
+      <input id="search_box" type="search" placeholder="Search">
+    </div>
+    <textarea id="notes" rows="4" placeholder="Type a longer message"></textarea>
+  </section>
+  <section>
+    <div class="row">
+      <input id="range" type="range" min="0" max="100" value="50">
+      <span id="range_value">50</span>
+      <label><input id="check" type="checkbox"> checkbox</label>
+      <label><input id="radio_a" type="radio" name="demo_radio" value="a"> A</label>
+      <label><input id="radio_b" type="radio" name="demo_radio" value="b"> B</label>
+      <select id="select"><option>One</option><option>Two</option><option>Three</option></select>
+      <input id="color" type="color" value="#3366ff">
+    </div>
+  </section>
+  <section>
+    <form id="form"><input id="form_name" required placeholder="Form name"><button id="submit" type="submit">Submit</button></form>
+    <p id="form_result"></p>
+  </section>
+  <section>
+    <input id="date" type="date">
+    <input id="time" type="time">
+    <input id="file" type="file">
+    <button id="read_file" type="button">Read file metadata</button>
+    <pre id="file_result"></pre>
+  </section>
+  <section>
+    <div id="scroll"><p>Scroll me.</p><p>Line 2</p><p>Line 3</p><p>Line 4</p><p>Line 5</p><p>Line 6</p><p>Line 7</p></div>
+    <p id="scroll_value">scrollTop=0</p>
+  </section>
+  <section><canvas id="canvas" width="350" height="140"></canvas></section>
+  <section><audio id="audio" controls></audio><video id="video" controls width="320"></video></section>
+  <section><h2>Joystick</h2><div id="stick"></div><p id="stick_readout">x=0 y=0</p></section>
+  <py1>
+from pytml import joystick
+
+def range_changed(event):
+    range_value.text = range.value
+
+def submit_form(event):
+    event.prevent_default()
+    form_result.text = "Submitted: " + form_name.value
+
+def read_file(event):
+    file_result.text = str(file.files)
+
+def scrolled(event):
+    scroll_value.text = "scrollTop=" + str(scroll.scroll_top)
+
+def moved(event):
+    stick_readout.text = f"x={event['joystick_x']:.2f} y={event['joystick_y']:.2f}"
+
+def draw():
+    ctx = canvas.canvas_context("2d")
+    ctx.clearRect(0, 0, 350, 140)
+    ctx.fillStyle = "#3b82f6"
+    ctx.fillRect(20, 20, 120, 80)
+
+draw()
+range.on("input", range_changed)
+form.on("submit", submit_form)
+read_file.on("click", read_file)
+file.on("change", read_file)
+scroll.on("scroll", scrolled)
+stick = joystick("stick")
+stick.on("joystickmove", moved)
+  </py1>
+</body>
+</html>

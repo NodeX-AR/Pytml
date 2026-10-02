@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml file:// + local pytml.js test</title>
+  <script src="./pytml.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; max-width: 720px; margin: auto; }
+    button { padding: 10px 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1 id="title">Local Pytml runtime test</h1>
+  <button id="hello">Click me</button>
+  <p id="result">Waiting for Python…</p>
+
+  <py1>
+
+def hello_clicked(event):
+    result.text = "The local HTML file loaded the local ./pytml.js successfully."
+
+hello.on("click", hello_clicked)
+  </py1>
+</body>
+</html>

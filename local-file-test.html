@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml file:// Test</title>
+  <!-- This page is intentionally designed to be opened directly as file:// -->
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; max-width: 720px; margin: auto; }
+    button { padding: 10px 16px; cursor: pointer; }
+    #result { margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Local file:// test</h1>
+  <p>Open this HTML directly from your computer. No local web server is required.</p>
+
+  <button id="hello">Click me</button>
+  <p id="result">Waiting for Python…</p>
+
+  <py1>
+
+def say_hello(event):
+    result.text = "Pytml is running from a local file."
+
+hello.on("click", say_hello)
+  </py1>
+</body>
+</html>

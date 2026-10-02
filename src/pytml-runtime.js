@@ -17,8 +17,6 @@ fetch('https://pytml.vercel.app/api/count')
   const PYODIDE_VERSION = '0.314.0.7';
   const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
   const PYODIDE_SCRIPT = `${PYODIDE_INDEX}pyodide.js`;
-  // Pytml supports local file:// pages when Python is inline and the runtime is loaded over HTTPS.
-  const IS_FILE_PROTOCOL = typeof location !== 'undefined' && location.protocol === 'file:';
   const PY_BLOCK = /^py(?:\d+)?$/i;
 
   // --- Speed: start the CDN connection and script download immediately, before DOMContentLoaded ---
@@ -668,15 +666,8 @@ async def _pytml_run_source(source):
     async runAllPythonScripts() {
       for (const block of this.findPythonBlocks()) {
         if (block.src) {
-          const resolved = new URL(block.src, document.baseURI);
-          if (location.protocol === 'file:' && resolved.protocol === 'file:') {
-            throw new Error(`Cannot fetch local Python file "${block.src}" from file://. Put the Python inline in <py> / <pyN>, or use an HTTPS URL.`);
-          }
-          const response = await fetch(resolved.href, {
-            credentials: IS_FILE_PROTOCOL ? 'omit' : 'same-origin',
-            mode: 'cors'
-          });
-          if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${resolved.href}`);
+          const response = await fetch(block.src, { credentials: 'same-origin' });
+          if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${block.src}`);
           await this.executePythonCode(await response.text(), block.id);
         } else if (block.code.trim()) {
           await this.executePythonCode(block.code, block.id);
