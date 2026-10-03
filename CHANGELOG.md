@@ -8,7 +8,7 @@ Changelog
 
 ## 2.5.0 — 2026-10-02
 
-- Kept Pyodide 0.314.0.7 as the runtime.
+- Kept Pyodide 314.0.7 as the runtime.
 - Added numbered `<pyN>` block discovery.
 - Added inline `<btnN>`, `<inputN>` and `<txtN>` preprocessing.
 - Added DOM and browser interaction helpers.
