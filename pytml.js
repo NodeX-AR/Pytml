@@ -2,9 +2,7 @@ fetch('https://pytml.vercel.app/api/count')
   .then(r => r.json())
   .then(data => console.log('Pytml loaded:', data.message, 'times'))
   .catch(() => {});
-navigator.sendBeacon?.("https://pytml.vercel.app/beacon", JSON.stringify({
-  u: location.href, r: document.referrer
-}));
+
 /*
  * Pytml 2.5.0
  * Python + HTML, powered by Pyodide.
