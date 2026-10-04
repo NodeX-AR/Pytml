@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pytml - Quiz</title>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <h1>Mini quiz</h1>
+    <!-- A normal function that asks questions. Pytml makes it wait for the answers. -->
+    <py>
+def ask(question, options, correct):
+    answer = pick(*options, prompt=question)
+    if answer == correct:
+        print("Correct!")
+        return 1
+    print(f"No, the answer is {correct}.")
+    return 0
+
+score = 0
+score += ask("Capital of France?", ["Paris", "Rome", "Madrid"], "Paris")
+score += ask("2 + 2 * 2 = ?", ["8", "6", "4"], "6")
+score += ask("Which one is a Python list?", ["[1, 2]", "(1, 2)", "{1, 2}"], "[1, 2]")
+print(f"Your score: {score}/3")
+    </py>
+</body>
+</html>

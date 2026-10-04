@@ -11,6 +11,7 @@ If you want real challenges then use our beta verion and say us how is it!
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 3.0     | :white_check_mark: |
 | 2.4     | :white_check_mark: |
 | 2.3     | :white_check_mark: |
 | 2.2     | :white_check_mark: |

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pytml - Greeting form</title>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <h1>Greeting form</h1>
+    <input id="name" placeholder="Your name">
+    <button py-click="greet">Greet me</button>
+    <p id="message"></p>
+
+    <py>
+def greet():
+    if name.value == "":
+        message.text = "Please type your name first."
+    else:
+        message.text = f"Hello, {name.value}! 👋"
+        name.value = ""
+    </py>
+</body>
+</html>

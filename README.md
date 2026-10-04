@@ -1,150 +1,137 @@
 # PYTML - Python in Your Browser
 [![Wikidata](https://img.shields.io/badge/Wikidata-Q140185675-006699?logo=wikidata&logoColor=white)](https://www.wikidata.org/wiki/Q140185675)
-[![Number of times Pytml used](https://img.shields.io/endpoint?url=https://pytml.vercel.app/api/count)](https://pytml.vercel.app/api/count)
+[![NUmber of times Pytml used](https://img.shields.io/endpoint?url=https://pytml.vercel.app/api/count)](https://pytml.vercel.app/api/count)
 [![Website](https://img.shields.io/badge/🌐%20Website-pytml.js.org-3b82f6?style=for-the-badge&logo=google-chrome&logoColor=white)](https://pytml.js.org/)
 [![GitHub stars](https://img.shields.io/badge/⭐%20Star%20on%20GitHub-yellow?style=for-the-badge&logo=github&logoColor=black)](https://github.com/NodeX-AR/Pytml)
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/NodeX-AR/Pytml/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/NodeX-AR/Pytml)
 
-**Run Python in your browser with zero configuration — no server, just a script tag.**
+**Run Python in your browser with zero configuration – no server, just a script tag.**
 
-Pytml 2.5 is a lightweight JavaScript bridge built on **Pyodide 0.314.0.7**. Write Python inside HTML, interact with ordinary DOM elements, and use the small numbered UI syntax supported by the 2.5 runtime.
+Pytml is a JavaScript library with its own Python compiler. Drop a single script tag into any static page, write your logic inside `<py>` tags, and it runs natively in the browser – including `input()`, buttons, clicks, NumPy, Pandas, Matplotlib and TensorFlow.js.
+
+> **Version 3.0.0** – new compiler, buttons and clicks, friendly errors, more libraries. Old pages keep working. See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-## Quick Start
+##  Quick Start
 
 Add one line to your HTML:
 
 ```html
 <script src="https://pytml.vercel.app/pytml.js"></script>
 ```
-
-Then write Python:
-
+## Usage
+Option 1: Inline Python (Recommended for mobile/local)
 ```html
-<py>
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <py>
 print("Hello, world!")
 name = input("Your name? ")
 print(f"Hi {name}!")
-</py>
+    </py>
+</body>
+</html>
+```
+Option 2: External Python File (HTTP/HTTPS only)
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <script type="text/python" src="script.py"></script>
+</body>
+</html>
+```
+```py
+name = input("Enter your name: ")
+age = input("Enter your age: ")
+print(f"Hello {name}, you are {age} years old!")
 ```
 
-## Pytml 2.5 UI Syntax
+> Python code that contains `<` or `&` (like `if a < b:`) is safest inside `<script type="text/python">`, because the browser reads `<py>` as HTML. Inside `<py>` you can write `&lt;` instead.
 
-Inside a `<pyN>` block, Pytml 2.5 recognizes numbered UI tags such as:
+## Talking to the page (new in 3.0)
+Python stays Python and HTML stays HTML. Only three small ideas are added:
 
+**1. An element with an `id` is a Python variable.**
 ```html
-<py1>
-
-<btn1>1</btn1>
-<btn2>2</btn2>
-<txt1>
-
-def show(e):
-    print("You clicked a button")
-
-btn1.on("click", show)
-
-</py1>
-```
-
-`<btnN>` becomes a real `<button id="btnN">`, while `<inputN>` and `<txtN>` become real text inputs. Python indentation is preserved before the source is passed to Pyodide.
-
-## Normal HTML + Python
-
-Ordinary HTML IDs are available to Python:
-
-```html
-<button id="hello">Click me</button>
-<p id="result"></p>
-
+<input id="name"> <button py-click="hello">Hi</button> <p id="out"></p>
 <py>
-def hello(event):
-    result.text = "Hello from Python!"
-
-hello.on("click", hello)
+def hello():
+    out.text = "Hello " + name.value
 </py>
 ```
 
-## Packages
+**2. `py-click="function_name"` runs a Python function** (also `py-input`, `py-change`, `py-keydown`, `py-submit` ...). The attribute may hold a short line of Python, like `py-click="count = 0"`.
 
-Pytml keeps the Pyodide package workflow, including `micropip`:
+**3. Waiting functions look like normal code.** Use them anywhere – even inside your own functions:
 
-```python
-import micropip
-await micropip.install("numpy")
+| You write | What happens |
+| --- | --- |
+| `input("question")` | text box, returns what the user typed |
+| `pick("+", "-", prompt="Operation?")` | one button per option, returns the clicked one |
+| `wait_for(".key")` or `wait_for(button)` | waits for a click, returns the event (`e.text`) |
+| `sleep(2)` | waits 2 seconds without freezing the page |
+| `fetch_text(url)`, `fetch_json(url)` | download a file / JSON |
+| `show(table_or_figure)` | display a pandas table or a matplotlib chart |
 
-import numpy as np
-print(np.mean([1, 2, 3]))
-```
+Element cheat sheet: `.text` `.html` `.value` `.number` `.checked` `.disabled` `.visible` `.show()` `.hide()` `.toggle()` `.clear()` `.add_class("x")` `.on_click(fn)`. Find elements with `get("id")`, `get(".css")`, `get_all(".css")`. Any other browser property also works (`el.scroll_into_view()`).
 
-Packages available in the Pyodide environment can be used from Pytml, including common scientific packages such as NumPy, pandas and Matplotlib.
+More: [Tutorial.md](Tutorial.md) and the [examples](examples/) folder.
 
-## Multiple Programs
+## Libraries
+Pytml runs real CPython (through Pyodide), so `import numpy`, `pandas`, `matplotlib`, `scipy`, `scikit-learn`, `sympy`, `pillow` ... just work – Pytml downloads them when you import them. Other pure-Python packages are installed from PyPI automatically.
 
-`<py1>`, `<py2>`, `<py3>`, and so on are identifiers, not filenames. Blocks with the same identifier belong to the same program:
+`import tensorflow as tf` runs **TensorFlow.js** through a Keras-style bridge (`tf.keras.Sequential`, `Dense`, `compile`, `fit`, `predict`, `tf.constant`, tensor maths). Training happens on the visitor's device. The original Python TensorFlow package cannot run inside a browser, so Pytml does not pretend to – see [examples/tensorflow.html](examples/tensorflow.html).
 
-```html
-<py1>
-x = 10
-</py1>
+## How the compiler works
+A browser tab can never really "stop and wait", so `input()` cannot simply block. The Pytml compiler reads **every** Python block of the page, finds each function that (directly or through other functions) waits, makes it `async`, and puts `await` where it is called – including across blocks and in methods. The output is standard Python, so every library keeps working, and line numbers in errors are the ones you wrote.
 
-<py1>
-print(x)
-</py1>
+Limits: `__init__` and other special methods cannot wait; generators (`yield`) cannot wait; a `while True:` loop needs a waiting call inside it (like `wait_for`) or the page freezes, as with any infinite loop.
 
-<py2>
-print("Another program")
-</py2>
-```
+## Important for Local Users (file:// protocol)
+If you're running HTML locally from your device (mobile or desktop):
 
-## Local Files
-
-Pytml supports local HTML files opened directly with `file://` when the Python code is inline:
-
-```html
-<script src="https://pytml.vercel.app/pytml.js"></script>
-
-<py>
-print("Hello from a local file!")
-</py>
-```
-
-No Python web server is required for this case. You can also use a local copy of `pytml.js` with `file://` by changing the script source to `./pytml.js`.
-
-A relative external Python file such as `<py src="app.py">` cannot be fetched from `file://` by normal browser JavaScript because of browser security restrictions; use inline Python or an HTTPS Python source URL for that case.
-
-See `local-file-test.html` for a ready-to-open example.
+Use inline <py> tags — This is the only method that works with file:// protocol
 
 ## Features
+Zero config – just add one script tag
 
-- Zero config — one script tag
-- Python in HTML
-- DOM interaction
-- Browser `input()`
-- Numbered inline UI controls
-- Mouse, pointer, touch, keyboard and scroll events
-- Joystick and gamepad helpers
-- Canvas, audio and video helpers
-- Clipboard, storage, downloads and fullscreen helpers
-- Package support through `micropip`
-- NumPy, pandas and Matplotlib support through the Pyodide environment
-- Privacy-first client-side execution
+Real I/O – print(), input(), pick(), buttons and clicks work live in the browser
+
+Friendly errors – block, line, the code, and a plain-English hint
+
+Package support – NumPy, Pandas, Matplotlib, SciPy, scikit-learn and more load automatically; TensorFlow.js through `import tensorflow`
+
+Privacy-first – no code ever leaves your browser
+
+One file – ~60KB with the compiler; Python loads in the background, page isn't blocked
+
+## Tests
+```bash
+npm install
+npm test      # compiler unit tests + every example, run in a fake browser with real Pyodide
+```
 
 ## Links
+Official Website =>
+[Website](https://pytml.js.org)
 
-Official Website → https://pytml.js.org/
-
-Demos → https://pytml.js.org/demo.html
-
-GitHub → https://github.com/NodeX-AR/Pytml
+Official Live Demo =>
+[Demo](https://pytml.js.org/demo)
 
 ## License
-
 Pytml is open-source under the Apache 2.0 License.
 
 ## Support
-
 **If you find Pytml useful, consider giving it a star on GitHub!**

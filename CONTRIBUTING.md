@@ -34,3 +34,23 @@ The following is a set of guidelines for contributing to this project. These are
    ```bash
    git clone https://github.com/nodex-ar/pytml.git
    cd pytml
+
+---
+
+## Working on the code (v3)
+
+`pytml.js` is **generated**. Edit the sources in `compiler/` and rebuild:
+
+| File | What it is |
+| --- | --- |
+| `compiler/compiler.py` | The Pytml compiler: whole-page analysis, `await` insertion, friendly errors (runs in the browser, but is plain Python) |
+| `compiler/runtime.py` | `get()`, `input()`, `pick()`, `wait_for()`, `show()`, elements and events |
+| `compiler/tfjs_bridge.py` | `import tensorflow` on top of TensorFlow.js |
+| `compiler/pytml.src.js` | Loader: finds the tags, loads Pyodide, draws the terminal box |
+| `build.cjs` | Glues them into `pytml.js` |
+
+```bash
+npm install        # test tools only (pyodide, jsdom, tensorflow.js)
+npm run build      # writes pytml.js
+npm test           # compiler unit tests + every example in a fake browser
+```

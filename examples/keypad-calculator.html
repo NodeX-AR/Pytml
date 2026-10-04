@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pytml - Keypad calculator</title>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; text-align: center; }
+        #screen { width: 220px; font-size: 24px; text-align: right; margin: 10px; }
+        .key { width: 50px; height: 50px; font-size: 20px; margin: 2px; }
+    </style>
+</head>
+<body>
+    <h1>Keypad calculator</h1>
+    <input id="screen" disabled>
+    <div>
+        <button class="key">7</button><button class="key">8</button><button class="key">9</button><button class="key">/</button><br>
+        <button class="key">4</button><button class="key">5</button><button class="key">6</button><button class="key">*</button><br>
+        <button class="key">1</button><button class="key">2</button><button class="key">3</button><button class="key">-</button><br>
+        <button class="key">C</button><button class="key">0</button><button class="key">=</button><button class="key">+</button>
+    </div>
+
+    <!-- every element with an id (screen) is a Python variable.
+         wait_for(".key") waits until any button with class "key" is clicked. -->
+    <py>
+expression = ""
+while True:
+    key = wait_for(".key").text
+    if key == "C":
+        expression = ""
+    elif key == "=":
+        try:
+            expression = str(eval(expression))
+        except Exception:
+            expression = "Error"
+    else:
+        expression += key
+    screen.value = expression
+    </py>
+</body>
+</html>

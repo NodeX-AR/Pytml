@@ -1,5 +1,1 @@
-__pycache__/
-*.py[cod]
-.pytest_cache/
 node_modules/
-.DS_Store

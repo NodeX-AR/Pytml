@@ -1,19 +1,19 @@
-# Pytml 2.5.0
+# Changelog
 
-- Supports inline Pytml from `file://` pages.
-- Keeps HTTPS runtime loading through the public `pytml.js` URL.
-- Gives a clear error for relative local Python `src` files under `file://`.
+## 3.0.0
+**Pytml now has its own compiler.**
+- New: whole-page compiler (`compiler/compiler.py`) – finds every function that waits (`input`, `pick`, `wait_for`, `sleep`, `fetch_*`, also through other functions, methods and across `<py>` blocks) and makes it `async` with `await` inserted automatically. Line numbers are preserved.
+- New: HTML elements with an `id` are Python variables (`name.value`, `out.text = "hi"`), plus `get()`, `get_all()` and an `Element` helper class.
+- New: `py-click`, `py-input`, `py-change`, `py-keydown`, `py-submit` ... attributes call a Python function or run a short line of Python.
+- New: `pick()`, `wait_for()`, `sleep()`, `fetch_text()`, `fetch_json()`, `show()`, `clear()`.
+- New: libraries are detected from `import` lines and loaded automatically (Pyodide packages, then PyPI through micropip).
+- New: `import tensorflow as tf` → TensorFlow.js through a Keras-style Python bridge.
+- New: friendly errors – block, line, code line and a plain-English hint; syntax errors are reported without stopping other blocks.
+- New: `<py1>`, `<py2>` ... tags; all blocks share one namespace.
+- New: `examples/` (9 pages), `tests/` (compiler unit tests + every example run in a fake browser with real Pyodide), `build.cjs`.
+- Changed: `pytml.js` is now generated from `compiler/`. Pyodide pinned to 314.0.7 (Python 3.14).
+- Kept: `<py>`, `<script type="text/python" src>`, `print()`, `input()`, `pytml.vercel.app/pytml.js`, the usage counter and the website/docs layout.
+- Known limits: `__init__`/special methods and generator functions cannot wait; Python `tensorflow`, `torch` and other native-only libraries cannot run in a browser.
 
-Changelog
-
-## 2.5.0 — 2026-10-02
-
-- Kept Pyodide 0.314.0.7 as the runtime.
-- Added numbered `<pyN>` block discovery.
-- Added inline `<btnN>`, `<inputN>` and `<txtN>` preprocessing.
-- Added DOM and browser interaction helpers.
-- Kept the public `https://pytml.vercel.app/pytml.js` script URL.
-- Updated demos to use the public HTTPS runtime.
-- Added a local-file example.
-- Kept original bot/API and repository support files.
-- The full Pytml compiler remains planned for v3.0.
+## 2.x
+Pyodide-based wrapper: `<py>` tags, `print()`, `input()`, error tracebacks.

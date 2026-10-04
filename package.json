@@ -1,6 +1,6 @@
 {
   "name": "pytml-chatbot",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,5 +8,14 @@
   },
   "dependencies": {
     "@upstash/redis": "^1.34.3"
+  },
+  "scripts": {
+    "build": "node build.cjs",
+    "test": "node build.cjs && python3 tests/test_compiler.py && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "jsdom": "^26.0.0",
+    "pyodide": "314.0.7"
   }
 }

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pytml - TensorFlow</title>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <h1>Train a neural network in your browser</h1>
+    <!-- import tensorflow uses TensorFlow.js through a Keras-style Python bridge.
+         The model learns y = 2x - 1 on your device. Nothing is uploaded. -->
+    <py>
+import tensorflow as tf
+
+xs = [[0.0], [1.0], [2.0], [3.0], [4.0]]
+ys = [[-1.0], [1.0], [3.0], [5.0], [7.0]]
+
+model = tf.keras.Sequential([tf.keras.layers.Dense(1, input_shape=[1])])
+model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.05), loss="mse")
+
+print("Training ...")
+model.fit(xs, ys, epochs=200, verbose=0)
+
+print("f(10) =", round(float(model.predict([[10.0]]).tolist()[0][0]), 2), "(should be close to 19)")
+    </py>
+</body>
+</html>

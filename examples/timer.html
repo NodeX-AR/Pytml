@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Pytml - Timer</title>
+    <script src="https://pytml.vercel.app/pytml.js"></script>
+</head>
+<body>
+    <h1 id="clock">10</h1>
+    <button id="start">Start countdown</button>
+
+    <!-- sleep() waits without freezing the page -->
+    <py>
+wait_for(start)
+start.disabled = True
+for n in range(10, -1, -1):
+    clock.text = n
+    sleep(1)
+clock.text = "Time is up!"
+    </py>
+</body>
+</html>
