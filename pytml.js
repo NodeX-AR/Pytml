@@ -1,8 +1,10 @@
-fetch('https://pytml.vercel.app/api/count')
+fetch('https://pytml.vercel.app/api/count', {
+  cache: 'no-store',
+  referrerPolicy: 'origin'
+})
   .then(r => r.json())
   .then(data => console.log('Pytml loaded:', data.message, 'times'))
   .catch(() => {});
-
 /*
  * Pytml 2.5.0
  * Python + HTML, powered by Pyodide.
