@@ -9,7 +9,7 @@
 
 **Run Python in your browser with zero configuration — no server, just a script tag.**
 
-Pytml 2.5 is a lightweight JavaScript bridge built on **Pyodide 0.314.0.7**. Write Python inside HTML, interact with ordinary DOM elements, and use the small numbered UI syntax supported by the 2.5 runtime.
+Pytml 2.5 is a lightweight JavaScript bridge built on **Pyodide 314.0.7**. Write Python inside HTML, interact with ordinary DOM elements, and use the small numbered UI syntax supported by the 2.5 runtime.
 
 ---
 
