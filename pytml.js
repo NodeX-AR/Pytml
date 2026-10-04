@@ -8,7 +8,7 @@ fetch('https://pytml.vercel.app/api/count', {
 /*
  * Pytml 2.5.0
  * Python + HTML, powered by Pyodide.
- *
+ * 
  * Pytml 2.5 includes a lightweight inline UI preprocessor for <pyN> blocks.
  * The full document/language compiler remains planned for v3.0.
  */
