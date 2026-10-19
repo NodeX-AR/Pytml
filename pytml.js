@@ -801,7 +801,7 @@ async def _pytml_run_source(source):
       this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
     }
 
-    addError(text) { this.addOutput(`❌ ${text}`, true); }
+    addError(text) { this.addOutput(`X ${text}`, true); }
 
     showStatus(message, isError=false) {
       if (!this.statusElement) { this.statusElement=document.createElement('div'); document.body.appendChild(this.statusElement); }
@@ -812,17 +812,20 @@ async def _pytml_run_source(source):
     hideStatus() { if (this.statusElement) { this.statusElement.remove(); this.statusElement=null; } }
 
     setTimeout(fn, ms) {
-      const proxy = this.pyodide.ffi.create_proxy(() => { try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } });
-      const id = window.setTimeout(() => { try { proxy(); } finally { try { proxy.destroy(); } catch (_) {} } }, Number(ms)||0);
-      this._timeouts.add(id); return id;
+      const id = window.setTimeout(() => { 
+        try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } 
+      }, Number(ms)||0);
+      this._timeouts.add(id); 
+      return id;
     }
+    
     setInterval(fn, ms) {
-      const proxy = this.pyodide.ffi.create_proxy(() => { try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } });
-      const id = window.setInterval(proxy, Number(ms)||0);
-      this._intervals.add({ id, proxy }); return id;
+      const id = window.setInterval(() => { 
+        try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } 
+      }, Number(ms)||0);
+      this._intervals.add(id); 
+      return id;
     }
-    clearTimeout(id) { window.clearTimeout(id); this._timeouts.delete(id); }
-    clearInterval(id) { window.clearInterval(id); for (const item of [...this._intervals]) if (item.id === id) { try { item.proxy.destroy(); } catch (_) {} this._intervals.delete(item); } }
 
     clipboard_write(text) {
       if (!navigator.clipboard?.writeText) return Promise.reject(new Error('Clipboard API unavailable'));
