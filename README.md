@@ -150,5 +150,5 @@ Pytml is open-source under the Apache 2.0 License.
 **If you find Pytml useful, consider giving it a star on GitHub!**
 
 ## Security Note:
-Pytml defaults to using element.text, which uses the browser's textContent API. This means it is 100% secure against Cross-Site Scripting (XSS) attacks.
-If you must use element.html to render raw HTML, never pass untrusted user input directly into it. Use the built-in pytml.escape() helper to sanitize the input first.
+Pytml defaults to using `element.text`, which uses the browser's textContent API. This means it is 100% secure against ***Cross-Site Scripting (XSS) attacks***.
+If you must use element.html to render raw HTML, never pass untrusted user input directly into it. Use the built-in `pytml.escape()` helper to sanitize the input first.
