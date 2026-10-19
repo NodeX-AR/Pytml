@@ -158,6 +158,7 @@ fetch('https://pytml.vercel.app/api/count', {
   // This is the Python-side DOM/runtime module injected into Pyodide at startup.
   const PYTHON_MODULE = String.raw`
 import js
+import asyncio
 from pyodide.ffi import create_proxy
 
 _callbacks = []
@@ -273,7 +274,10 @@ class Element:
         def handler(raw):
             try:
                 normalized = js.pytmlInstance.api_event(raw).to_py()
-                return callback(Event(normalized, raw))
+                result = callback(Event(normalized, raw))
+                if asyncio.iscoroutine(result):
+                    asyncio.ensure_future(result)
+                return None
             except Exception:
                 import traceback
                 js.pytmlInstance.addError(traceback.format_exc())
