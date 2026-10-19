@@ -160,6 +160,8 @@ fetch('https://pytml.vercel.app/api/count', {
 import js
 import asyncio
 from pyodide.ffi import create_proxy
+import html as _html_escape
+
 
 _callbacks = []
 
@@ -355,6 +357,9 @@ def gamepads(): return js.pytmlInstance.gamepads()
 def storage_get(key, fallback=None): return js.pytmlInstance.storage_get(key, fallback)
 def storage_set(key, value): return js.pytmlInstance.storage_set(key, value)
 def storage_remove(key): return js.pytmlInstance.storage_remove(key)
+def escape(text):
+    """Safely escape HTML characters (<, >, &) from user input."""
+    return _html_escape.escape(str(text))
 def install(requirements, **kwargs):
     import micropip
     return micropip.install(requirements, **kwargs)
