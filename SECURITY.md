@@ -20,6 +20,11 @@ If you want real bugs and errors, then use our beta verion and say us how is it!
 
 >*This version is latest and we made it into production. The version is tested on various angles on production itself.
 
+## Security Updates:
+
+- Pytml defaults to using `element.text`, which uses the browser's textContent API. This means it is 100% secure against ***Cross-Site Scripting (XSS) attacks***.
+If you must use element.html to render raw HTML, never pass untrusted user input directly into it. Use the built-in `pytml.escape()` helper to sanitize the input first.
+
 ## Reporting a Vulnerability
 
 First off Thanks!
