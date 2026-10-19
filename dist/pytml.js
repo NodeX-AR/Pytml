@@ -6,7 +6,7 @@ fetch('https://pytml.vercel.app/api/count', {
   .then(data => console.log('Pytml loaded:', data.message, 'times'))
   .catch(() => {});
 /*
- * Pytml 2.5.0
+ * Pytml 2.5.1
  * Python + HTML, powered by Pyodide.
  * 
  * Pytml 2.5 includes a lightweight inline UI preprocessor for <pyN> blocks.
@@ -15,7 +15,7 @@ fetch('https://pytml.vercel.app/api/count', {
 (function (global) {
   'use strict';
 
-  const VERSION = '2.5.0';
+  const VERSION = '2.5.1';
   const PYODIDE_VERSION = '314.0.7';
   const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
   const PYODIDE_SCRIPT = `${PYODIDE_INDEX}pyodide.js`;
@@ -338,8 +338,12 @@ def query(selector): return element(selector)
 def query_all(selector): return [Element(x) for x in js.document.querySelectorAll(str(selector))]
 def joystick(target): return Joystick(js.pytmlInstance.makeJoystick(target).element)
 async def sleep(ms): await js.pytmlInstance.sleep(int(ms))
-def timeout(callback, ms): return js.pytmlInstance.setTimeout(callback, int(ms))
-def interval(callback, ms): return js.pytmlInstance.setInterval(callback, int(ms))
+def timeout(callback, ms): 
+    from pyodide.ffi import create_proxy
+    return js.pytmlInstance.setTimeout(create_proxy(callback), int(ms))
+def interval(callback, ms): 
+    from pyodide.ffi import create_proxy
+    return js.pytmlInstance.setInterval(create_proxy(callback), int(ms))
 def clear_timeout(timer_id): return js.pytmlInstance.clearTimeout(int(timer_id))
 def clear_interval(timer_id): return js.pytmlInstance.clearInterval(int(timer_id))
 async def clipboard_copy(text): await js.pytmlInstance.clipboard_write(str(text))
@@ -355,8 +359,8 @@ def install(requirements, **kwargs):
     import micropip
     return micropip.install(requirements, **kwargs)
 
-version = '2.5.0'
-pyodide_version = '0.314.0.7'
+version = '2.5.1'
+pyodide_version = '314.0.7'
 
 def _bind_all_dom(namespace):
     elements = {}
@@ -461,8 +465,8 @@ def _bind_all_dom(namespace):
       this.readyPromise = null;
       this.programs = new Map();
       this._callbackRegistry = new Map();
-      this._intervals = new Set();
-      this._timeouts = new Set();
+      this._intervals = new Map();
+      this._timeouts = new Map();
       this._joystickState = new WeakMap();
     }
 
@@ -815,18 +819,34 @@ async def _pytml_run_source(source):
       const id = window.setTimeout(() => { 
         try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } 
       }, Number(ms)||0);
-      this._timeouts.add(id); 
+      this._timeouts.set(id, fn); 
       return id;
     }
-    
+
     setInterval(fn, ms) {
       const id = window.setInterval(() => { 
         try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } 
       }, Number(ms)||0);
-      this._intervals.add(id); 
+      this._intervals.set(id, fn); 
       return id;
     }
+    clearTimeout(id) { 
+      window.clearTimeout(id); 
+      const fn = this._timeouts.get(id);
+      if (fn) { 
+        try { fn.destroy(); } catch (_) {} 
+        this._timeouts.delete(id); 
+      }
+    }
 
+    clearInterval(id) { 
+      window.clearInterval(id); 
+      const fn = this._intervals.get(id);
+      if (fn) { 
+        try { fn.destroy(); } catch (_) {} 
+        this._intervals.delete(id); 
+      }
+    }
     clipboard_write(text) {
       if (!navigator.clipboard?.writeText) return Promise.reject(new Error('Clipboard API unavailable'));
       return navigator.clipboard.writeText(String(text));
