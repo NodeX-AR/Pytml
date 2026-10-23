@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use Pytml in your research or teaching, please cite it using the metadata below."
+
+title: "Pytml: Python in Your HTML with a Single Script Tag"
+abstract: "Pytml is a lightweight (~15KB) JavaScript library that runs Python directly inside HTML using Pyodide. It requires no backend server, no build step, and includes an inline UI preprocessor for beginner-friendly controls."
+version: 2.5.1
+date-released: "2026-06-21"
+
+authors:
+  - family-names: "R"
+    given-names: "Aswanth"
+    orcid: "https://orcid.org/0009-0007-1619-374X"
+    affiliation: "Independent Researcher"
+
+repository-code: "https://github.com/NodeX-AR/Pytml"
+url: "https://pytml.js.org"
+license: "Apache-2.0"
+
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.20786716"
+    description: "Zenodo DOI for the Pytml research paper"
+
+keywords:
+  - Python
+  - JavaScript
+  - WebAssembly
+  - Pyodide
+  - Education
+  - Browser
+  - DOM
