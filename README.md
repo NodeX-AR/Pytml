@@ -11,6 +11,7 @@
 
 Pytml 2.5 is a lightweight JavaScript bridge built on **Pyodide 314.0.7**. Write Python inside HTML, interact with ordinary DOM elements, and use the small numbered UI syntax supported by the 2.5 runtime.
 
+> Official Pyodide Related Project. Thank you to the Pyodide team for the support!
 ---
 
 ## Quick Start
