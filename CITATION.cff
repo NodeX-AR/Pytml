@@ -17,7 +17,7 @@ license: "Apache-2.0"
 
 identifiers:
   - type: doi
-    value: "10.5281/zenodo.20786716"
+    value: "10.5281/zenodo.23695859"
     description: "Zenodo DOI for the Pytml research paper"
 
 keywords:
