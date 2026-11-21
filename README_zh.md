@@ -17,8 +17,8 @@
 
 Pytml 2.5 是一个基于 **Pyodide 314.0.7** 的轻量级 JavaScript 桥接库。你可以直接在 HTML 中编写 Python,操作普通的 DOM 元素,并使用 2.5 运行时支持的简易编号式 UI 语法。
 
-> Pyodide 官方相关项目。感谢 Pyodide 团队的支持!
-
+> **Pyodide 官方相关项目。感谢 Pyodide 团队的支持!**  
+> **收录于 [Python 周刊第 772 期](https://www.pythonweekly.com/p/python-weekly-issue-772-november-19-2026)!**
 ---
 
 ## 快速开始
