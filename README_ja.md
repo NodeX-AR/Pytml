@@ -17,7 +17,8 @@
 
 Pytml 2.5は、**Pyodide 314.0.7** をベースにした軽量なJavaScriptブリッジです。HTMLの中にPythonを書き、通常のDOM要素を操作でき、2.5ランタイムが対応する番号付きの簡易UI構文も使えます。
 
-> Pyodide公式の関連プロジェクトです。サポートしてくださったPyodideチームに感謝します。
+> **Pyodide公式の関連プロジェクトです。サポートしてくださったPyodideチームに感謝します。**  
+> **Ditampilake ing [Python Weekly Edisi 772](https://www.pythonweekly.com/p/python-weekly-issue-772-november-19-2026)!**
 
 ---
 
