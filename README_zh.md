@@ -10,7 +10,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15994/badge)](https://www.bestpractices.dev/projects/15994)
 
 ---
-English(英语) | [日本語 (日本人)](README_ja.md) | [Deutsch (德语)](README_de.md) | 简体中文
+[English (英语)](README.md) | [日本語 (日本人)](README_ja.md) | [Deutsch (德语)](README_de.md) | 简体中文
 ---
 
 **零配置，在浏览器中运行 Python——无需服务器，只需一个 script 标签。**
