@@ -8,6 +8,10 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15994/badge)](https://www.bestpractices.dev/projects/15994)
 
+---
+**English** | [日本語 (Japanese)](README_ja.md) | [Deutsch (German)](README_de.md) | [简体中文 (Chinese)](README_zh.md)
+---
+
 **Run Python in your browser with zero configuration — no server, just a script tag.**
 
 Pytml 2.5 is a lightweight JavaScript bridge built on **Pyodide 314.0.7**. Write Python inside HTML, interact with ordinary DOM elements, and use the small numbered UI syntax supported by the 2.5 runtime.
