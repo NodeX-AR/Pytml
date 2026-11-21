@@ -11,7 +11,7 @@
 
 
 ---
-[English](README.md) | [日本語 (Japanese)](README_ja.md) | Deutsch | [简体中文 (Chinese)](README_zh.md)
+[English (Englisch)](README.md) | [日本語 (japanisch)](README_ja.md) | Deutsch | [简体中文 (chinesisch)](README_zh.md)
 ---
 
 **Python im Browser ausführen – ohne Konfiguration, ohne Server, nur ein Script-Tag.**
