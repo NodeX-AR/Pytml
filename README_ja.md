@@ -7,7 +7,11 @@
 [![License](https://img.shields.io/github/license/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/blob/main/LICENSE)
 [![GitHub issues](https://img.shields.io/github/issues/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/issues)
 [![GitHub last commit](https://img.shields.io/github/last-commit/NodeX-AR/Pytml)](https://github.com/NodeX-AR/Pytml/commits/main)
-[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15994/badge)](https://www.bestpractices.dev/projects/15994)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15994/badge)](https://www.bestpractices.dev/projects/15994) 
+
+---
+[English](README.md) | **日本語 ** | [Deutsch (German)](README_de.md) | [简体中文 (Chinese)](README_zh.md)
+---
 
 **設定不要でブラウザ上でPythonを実行 ― サーバーは不要、scriptタグ1行だけです。**
 
