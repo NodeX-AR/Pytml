@@ -1,10 +1,17 @@
-# Pytml 2.5.0
+# Pytml 2.5.1
 
-- Supports inline Pytml from `file://` pages.
-- Keeps HTTPS runtime loading through the public `pytml.js` URL.
+- Supports inline Python on `file://` pages while keeping Pyodide on HTTPS.
+- Loads Pyodide only when a page contains Python blocks.
 - Gives a clear error for relative local Python `src` files under `file://`.
+- Improves async callbacks, timer handling, and HTML escaping.
 
 Changelog
+
+## 2.5.1 — 2026-10-19
+
+- Added inline Python support for `file://` pages and clearer errors for local Python `src` files.
+- Avoided loading Pyodide on pages without Python blocks.
+- Improved async callbacks, timer handling, and HTML escaping.
 
 ## 2.5.0 — 2026-10-02
 

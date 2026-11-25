@@ -5,16 +5,34 @@ import { readFile } from 'node:fs/promises';
 const src = await readFile('src/pytml-runtime.js', 'utf8');
 
 
-test('Pytml pins Pyodide 0.314.0.7', () => {
-  assert.match(src, /PYODIDE_VERSION = '0\.314\.0\.7'/);
+test('Pytml is version 2.5.1 and pins Pyodide 314.0.7', () => {
+  assert.match(src, /VERSION = '2\.5\.1'/);
+  assert.match(src, /PYODIDE_VERSION = '314\.0\.7'/);
   assert.match(src, /cdn\.jsdelivr\.net\/pyodide\/v\$\{PYODIDE_VERSION\}\/full/);
 });
 
-test('the requested fast boot preloads Pyodide before DOMContentLoaded', () => {
+test('Pyodide boot is deferred until the page contains Python blocks', () => {
   assert.match(src, /preconnect\(\);/);
-  assert.match(src, /preloadPyodideScript\(\);/);
-  assert.match(src, /pyodide\.asm\.wasm/);
+  assert.match(src, /function pageHasPythonBlocks\(\)/);
+  assert.match(src, /if \(!pageHasPythonBlocks\(\)\) return/);
+  assert.match(src, /document\.addEventListener\('DOMContentLoaded', run, \{ once: true \}\)/);
+  assert.doesNotMatch(src, /pyodide\.asm\.wasm/);
   assert.match(src, /script\.async = true/);
+});
+
+test('distribution bundles are generated from the runtime source', async () => {
+  const minified = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ \t]+/gm, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+
+  for (const path of ['pytml.js', 'dist/pytml.js']) {
+    assert.equal(await readFile(path, 'utf8'), src);
+  }
+  for (const path of ['pytml.min.js', 'dist/pytml.min.js']) {
+    assert.equal(await readFile(path, 'utf8'), minified);
+  }
 });
 
 test('boot locks interactive controls while Python loads', () => {

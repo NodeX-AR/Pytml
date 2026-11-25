@@ -1,10 +1,5 @@
-fetch('https://pytml.vercel.app/api/count')
-  .then(r => r.json())
-  .then(data => console.log('Pytml loaded:', data.message, 'times'))
-  .catch(() => {});
-
 /*
- * Pytml 2.5.0
+ * Pytml 2.5.1
  * Python + HTML, powered by Pyodide.
  *
  * Pytml 2.5 includes a lightweight inline UI preprocessor for <pyN> blocks.
@@ -13,13 +8,15 @@ fetch('https://pytml.vercel.app/api/count')
 (function (global) {
   'use strict';
 
-  const VERSION = '2.5.0';
-  const PYODIDE_VERSION = '0.314.0.7';
+  const VERSION = '2.5.1';
+  const PYODIDE_VERSION = '314.0.7';
   const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
   const PYODIDE_SCRIPT = `${PYODIDE_INDEX}pyodide.js`;
+  // file:// is supported for inline Python. Pyodide itself stays on the HTTPS CDN.
+  const IS_FILE_PROTOCOL = typeof location !== 'undefined' && location.protocol === 'file:';
   const PY_BLOCK = /^py(?:\d+)?$/i;
 
-  // --- Speed: start the CDN connection and script download immediately, before DOMContentLoaded ---
+  // --- Network helpers. Pyodide is loaded only when a Python block is present. ---
   let _pyodideScriptPromise = null;
 
   function preconnect() {
@@ -33,13 +30,6 @@ fetch('https://pytml.vercel.app/api/count')
       if (rel === 'preconnect') link.crossOrigin = 'anonymous';
       document.head.appendChild(link);
     }
-    // Preload the 6MB wasm so it downloads in parallel with the JS bootstrap.
-    const wasm = document.createElement('link');
-    wasm.rel = 'preload';
-    wasm.href = `${PYODIDE_INDEX}pyodide.asm.wasm`;
-    wasm.as = 'fetch';
-    wasm.crossOrigin = 'anonymous';
-    document.head.appendChild(wasm);
   }
 
   function preloadPyodideScript() {
@@ -137,10 +127,13 @@ fetch('https://pytml.vercel.app/api/count')
     });
   }
 
-  // Fire immediately — these run before DOMContentLoaded.
-  preconnect();
-  installBootState();
-  preloadPyodideScript();
+  function pageHasPythonBlocks() {
+    if (document.querySelector('script[type="text/python"]')) return true;
+    return Array.from(document.querySelectorAll('*')).some((el) => {
+      const tag = el.tagName?.toLowerCase?.() || '';
+      return PY_BLOCK.test(tag);
+    });
+  }
 
   const DEFAULT_STYLE = `
     .pytml-output{box-sizing:border-box;background:#0a0e27;color:#e7e9ee;border:1px solid rgba(102,126,234,.28);border-radius:14px;padding:16px;margin:16px 0;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;max-height:420px;overflow:auto}
@@ -158,7 +151,10 @@ fetch('https://pytml.vercel.app/api/count')
   // This is the Python-side DOM/runtime module injected into Pyodide at startup.
   const PYTHON_MODULE = String.raw`
 import js
+import asyncio
 from pyodide.ffi import create_proxy
+import html as _html_escape
+
 
 _callbacks = []
 
@@ -273,7 +269,10 @@ class Element:
         def handler(raw):
             try:
                 normalized = js.pytmlInstance.api_event(raw).to_py()
-                return callback(Event(normalized, raw))
+                result = callback(Event(normalized, raw))
+                if asyncio.iscoroutine(result):
+                    asyncio.ensure_future(result)
+                return None
             except Exception:
                 import traceback
                 js.pytmlInstance.addError(traceback.format_exc())
@@ -334,8 +333,12 @@ def query(selector): return element(selector)
 def query_all(selector): return [Element(x) for x in js.document.querySelectorAll(str(selector))]
 def joystick(target): return Joystick(js.pytmlInstance.makeJoystick(target).element)
 async def sleep(ms): await js.pytmlInstance.sleep(int(ms))
-def timeout(callback, ms): return js.pytmlInstance.setTimeout(callback, int(ms))
-def interval(callback, ms): return js.pytmlInstance.setInterval(callback, int(ms))
+def timeout(callback, ms):
+    from pyodide.ffi import create_proxy
+    return js.pytmlInstance.setTimeout(create_proxy(callback), int(ms))
+def interval(callback, ms):
+    from pyodide.ffi import create_proxy
+    return js.pytmlInstance.setInterval(create_proxy(callback), int(ms))
 def clear_timeout(timer_id): return js.pytmlInstance.clearTimeout(int(timer_id))
 def clear_interval(timer_id): return js.pytmlInstance.clearInterval(int(timer_id))
 async def clipboard_copy(text): await js.pytmlInstance.clipboard_write(str(text))
@@ -347,12 +350,15 @@ def gamepads(): return js.pytmlInstance.gamepads()
 def storage_get(key, fallback=None): return js.pytmlInstance.storage_get(key, fallback)
 def storage_set(key, value): return js.pytmlInstance.storage_set(key, value)
 def storage_remove(key): return js.pytmlInstance.storage_remove(key)
+def escape(text):
+    """Safely escape HTML characters (<, >, &) from user input."""
+    return _html_escape.escape(str(text))
 def install(requirements, **kwargs):
     import micropip
     return micropip.install(requirements, **kwargs)
 
-version = '2.5.0'
-pyodide_version = '0.314.0.7'
+version = '2.5.1'
+pyodide_version = '314.0.7'
 
 def _bind_all_dom(namespace):
     elements = {}
@@ -457,8 +463,8 @@ def _bind_all_dom(namespace):
       this.readyPromise = null;
       this.programs = new Map();
       this._callbackRegistry = new Map();
-      this._intervals = new Set();
-      this._timeouts = new Set();
+      this._intervals = new Map();
+      this._timeouts = new Map();
       this._joystickState = new WeakMap();
     }
 
@@ -468,15 +474,23 @@ def _bind_all_dom(namespace):
     }
 
     async _start() {
+      preconnect();
+      installBootState();
       this.installStyles();
+
+      // Always use the remote Pyodide CDN from file:// pages. This avoids
+      // trying to resolve Pyodide assets relative to a local file origin.
+      const indexURL = IS_FILE_PROTOCOL
+        ? PYODIDE_INDEX
+        : this.options.pyodideIndexURL;
+
       await this.loadPyodideScript();
-      this.pyodide = await global.loadPyodide({ indexURL: this.options.pyodideIndexURL });
+      this.pyodide = await global.loadPyodide({ indexURL });
       global.pyodide = this.pyodide;
       global.pytmlInstance = this;
       global.pytml = this;
       await this.installPythonModule();
       await this.setupPythonEnvironment();
-      await this.pyodide.loadPackage('micropip');
       this.ready = true;
       await this.runAllPythonScripts();
       clearBootState();
@@ -666,8 +680,15 @@ async def _pytml_run_source(source):
     async runAllPythonScripts() {
       for (const block of this.findPythonBlocks()) {
         if (block.src) {
-          const response = await fetch(block.src, { credentials: 'same-origin' });
-          if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${block.src}`);
+          const resolved = new URL(block.src, document.baseURI);
+          if (location.protocol === 'file:' && resolved.protocol === 'file:') {
+            throw new Error(`Pytml cannot read a separate local Python file ("${block.src}") from file:// because browsers block local-file fetches. Use inline <py> / <pyN> code or an HTTPS src.`);
+          }
+          const response = await fetch(resolved.href, {
+            credentials: IS_FILE_PROTOCOL ? 'omit' : 'same-origin',
+            mode: 'cors'
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${resolved.href}`);
           await this.executePythonCode(await response.text(), block.id);
         } else if (block.code.trim()) {
           await this.executePythonCode(block.code, block.id);
@@ -782,7 +803,7 @@ async def _pytml_run_source(source):
       this.outputContainer.scrollTop = this.outputContainer.scrollHeight;
     }
 
-    addError(text) { this.addOutput(`❌ ${text}`, true); }
+    addError(text) { this.addOutput(`X ${text}`, true); }
 
     showStatus(message, isError=false) {
       if (!this.statusElement) { this.statusElement=document.createElement('div'); document.body.appendChild(this.statusElement); }
@@ -793,18 +814,37 @@ async def _pytml_run_source(source):
     hideStatus() { if (this.statusElement) { this.statusElement.remove(); this.statusElement=null; } }
 
     setTimeout(fn, ms) {
-      const proxy = this.pyodide.ffi.create_proxy(() => { try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } });
-      const id = window.setTimeout(() => { try { proxy(); } finally { try { proxy.destroy(); } catch (_) {} } }, Number(ms)||0);
-      this._timeouts.add(id); return id;
+      const id = window.setTimeout(() => {
+        try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); }
+      }, Number(ms)||0);
+      this._timeouts.set(id, fn);
+      return id;
     }
-    setInterval(fn, ms) {
-      const proxy = this.pyodide.ffi.create_proxy(() => { try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); } });
-      const id = window.setInterval(proxy, Number(ms)||0);
-      this._intervals.add({ id, proxy }); return id;
-    }
-    clearTimeout(id) { window.clearTimeout(id); this._timeouts.delete(id); }
-    clearInterval(id) { window.clearInterval(id); for (const item of [...this._intervals]) if (item.id === id) { try { item.proxy.destroy(); } catch (_) {} this._intervals.delete(item); } }
 
+    setInterval(fn, ms) {
+      const id = window.setInterval(() => {
+        try { fn(); } catch (e) { this.addError(`Timer error: ${e.message}`); }
+      }, Number(ms)||0);
+      this._intervals.set(id, fn);
+      return id;
+    }
+    clearTimeout(id) {
+      window.clearTimeout(id);
+      const fn = this._timeouts.get(id);
+      if (fn) {
+        try { fn.destroy(); } catch (_) {}
+        this._timeouts.delete(id);
+      }
+    }
+
+    clearInterval(id) {
+      window.clearInterval(id);
+      const fn = this._intervals.get(id);
+      if (fn) {
+        try { fn.destroy(); } catch (_) {}
+        this._intervals.delete(id);
+      }
+    }
     clipboard_write(text) {
       if (!navigator.clipboard?.writeText) return Promise.reject(new Error('Clipboard API unavailable'));
       return navigator.clipboard.writeText(String(text));
@@ -861,11 +901,20 @@ async def _pytml_run_source(source):
   let singleton=null;
   function start(options={}) { if(!singleton) singleton=new Pytml(options); return singleton.start(); }
   async function boot() {
-    try {
-      await start();
-    } catch (err) {
-      console.error('[PYTML] boot failed:', err);
-      failBootState('Python failed to load. Refresh to retry.');
+    const run = async () => {
+      if (!pageHasPythonBlocks()) return;
+      try {
+        await start();
+      } catch (err) {
+        console.error('[PYTML] boot failed:', err);
+        failBootState(err?.message || 'Python failed to load. Refresh to retry.');
+      }
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run, { once: true });
+    } else {
+      run();
     }
   }
 
