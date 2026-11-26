@@ -4,9 +4,9 @@
 
 We recommend using the latest stable release. The beta version contains upcoming features and may have undiscovered bugs.
 
-If you are using the beta version to help us test, you can load it here:
+If you are using the next version to help us test it, you can load it here:
 ```html
-<script src="https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@Beta-Version/pytml.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/NodeX-AR/Pytml@Test-Version/pytml.js"></script>
 ```
 
 | Version | Supported          |
