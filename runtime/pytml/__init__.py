@@ -1,4 +1,4 @@
-"""Pytml 2.5 browser helpers.
+"""Pytml 2.6 browser helpers.
 
 The CDN runtime injects an equivalent in-memory module before user code runs.
 """

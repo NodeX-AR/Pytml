@@ -1,17 +1,13 @@
-import { readFile, writeFile, mkdir, cp, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, cp } from 'node:fs/promises';
 import { join } from 'node:path';
+import { minify } from './minify.mjs';
 
 const source = await readFile('src/pytml-runtime.js', 'utf8');
 await mkdir('dist', { recursive: true });
 await writeFile('pytml.js', source, 'utf8');
 await writeFile('dist/pytml.js', source, 'utf8');
 
-// Conservative whitespace minifier for the browser distribution snapshot.
-const minified = source
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/^[ \t]+/gm, '')
-  .replace(/\n{2,}/g, '\n')
-  .trim();
+const minified = minify(source);
 await writeFile('pytml.min.js', minified, 'utf8');
 await writeFile('dist/pytml.min.js', minified, 'utf8');
 
@@ -25,4 +21,4 @@ for (const dir of copyDirs) {
   await cp(dir, join('website', dir), { recursive: true, force: true });
 }
 
-console.log(`Built Pytml ${source.length} bytes -> root, dist/, and website/`);
+console.log(`Built Pytml ${source.length} bytes (min ${minified.length}) -> root, dist/, and website/`);

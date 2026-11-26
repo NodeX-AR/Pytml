@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml Gamepad Tester</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { margin: 0; padding: 20px; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; text-align: center; }
+    #screen { display: block; margin: 16px auto; border: 2px solid #30363d; border-radius: 8px; background: #111827; }
+    button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid #30363d; background: #21262d; color: #c9d1d9; cursor: pointer; }
+    #info { opacity: .8; min-height: 1.4em; }
+  </style>
+</head>
+<body>
+<h1>Gamepad Tester</h1>
+<div id="info">Connect a controller and press any button.</div>
+<canvas id="screen"></canvas>
+<button id="rumble">Rumble</button>
+
+<py1>
+from pytml import Canvas, loop, gamepad, connected_gamepads, on_gamepad_connected, on_gamepad_disconnected
+
+screen = Canvas("screen", 520, 300, fit=True)
+BUTTONS = ["a", "b", "x", "y", "lb", "rb", "lt", "rt", "back", "start", "ls", "rs", "up", "down", "left", "right", "home"]
+last = {"name": None}
+
+
+def say(pad, state):
+    info.text = f"{state}: {pad.id}"
+
+
+on_gamepad_connected(lambda pad: say(pad, "Connected"))
+on_gamepad_disconnected(lambda pad: say(pad, "Disconnected"))
+
+
+def buzz(event):
+    pads = connected_gamepads()
+    if pads and not pads[0].rumble(300):
+        info.text = "This browser/controller does not support rumble."
+
+
+rumble.on("click", buzz)
+
+
+def stick(cx, cy, vec, label):
+    screen.circle(cx, cy, 46, "#30363d", fill=False, line_width=2)
+    screen.circle(cx + vec[0] * 34, cy + vec[1] * 34, 11, "#4aa8ff")
+    screen.text(f"{vec[0]:+.2f}, {vec[1]:+.2f}", cx, cy + 58, "#8b949e", 12, align="center")
+    screen.text(label, cx, cy - 72, "#c9d1d9", 13, align="center")
+
+
+@loop
+def draw(dt):
+    screen.clear("#111827")
+    pads = connected_gamepads()
+    if not pads:
+        screen.text("No controller detected", 260, 150, "#8b949e", 18, align="center", baseline="middle")
+        return
+    pad = pads[0]
+    for i, name in enumerate(BUTTONS):
+        col, row = i % 9, i // 9
+        x, y = 40 + col * 56, 24 + row * 44
+        v = pad.button(name)
+        screen.rect(x, y, 48, 32, (74 + int(v * 100), 168, 255, 0.15 + v * 0.85))
+        screen.text(name, x + 24, y + 16, "#fff", 12, align="center", baseline="middle")
+        if pad.pressed(name):
+            last["name"] = name
+    stick(150, 200, pad.left_stick, "Left stick")
+    stick(370, 200, pad.right_stick, "Right stick")
+    screen.text(f"Last pressed: {last['name'] or '-'}", 260, 280, "#8b949e", 13, align="center")
+</py1>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+</body>
+</html>

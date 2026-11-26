@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { minify } from '../tools/minify.mjs';
 
 const src = await readFile('src/pytml-runtime.js', 'utf8');
 
 
-test('Pytml is version 2.5.1 and pins Pyodide 314.0.7', () => {
-  assert.match(src, /VERSION = '2\.5\.1'/);
+test('Pytml is version 2.6.0 and pins Pyodide 314.0.7', () => {
+  assert.match(src, /VERSION = '2\.6\.0'/);
+  assert.match(src, /^version = '2\.6\.0'$/m);
   assert.match(src, /PYODIDE_VERSION = '314\.0\.7'/);
   assert.match(src, /cdn\.jsdelivr\.net\/pyodide\/v\$\{PYODIDE_VERSION\}\/full/);
 });
@@ -14,18 +16,18 @@ test('Pytml is version 2.5.1 and pins Pyodide 314.0.7', () => {
 test('Pyodide boot is deferred until the page contains Python blocks', () => {
   assert.match(src, /preconnect\(\);/);
   assert.match(src, /function pageHasPythonBlocks\(\)/);
-  assert.match(src, /if \(!pageHasPythonBlocks\(\)\) return/);
+  // Without Python blocks nothing boots; the only thing allowed is the opt-in cache preload.
+  assert.match(src, /if \(!pageHasPythonBlocks\(\)\) \{[\s\S]*?CONFIG\.preload === true[\s\S]*?return;\s*\}/);
   assert.match(src, /document\.addEventListener\('DOMContentLoaded', run, \{ once: true \}\)/);
-  assert.doesNotMatch(src, /pyodide\.asm\.wasm/);
+  // The wasm is never loaded eagerly: only named in the cache's core-file list.
+  const code = src.split('\n').filter((line) => !/^\s*(\/\/|\*|\/\*)/.test(line)).join('\n');
+  assert.equal((code.match(/pyodide\.asm\.wasm/g) || []).length, 1);
+  assert.match(src, /CORE_FILES = \['pyodide-lock\.json', 'python_stdlib\.zip', 'pyodide\.asm\.wasm'\]/);
   assert.match(src, /script\.async = true/);
 });
 
 test('distribution bundles are generated from the runtime source', async () => {
-  const minified = src
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^[ \t]+/gm, '')
-    .replace(/\n{2,}/g, '\n')
-    .trim();
+  const minified = minify(src);
 
   for (const path of ['pytml.js', 'dist/pytml.js']) {
     assert.equal(await readFile(path, 'utf8'), src);
@@ -92,7 +94,52 @@ test('calculator uses inline numbered buttons and not ordinary external calculat
 
 test('demo gallery links to multiple runnable demos', async () => {
   const html = await readFile('demo.html', 'utf8');
-  for (const page of ['calculator.html', 'counter.html', 'greeting.html', 'joystick.html', 'packages.html']) {
+  for (const page of ['calculator.html', 'counter.html', 'greeting.html', 'joystick.html', 'packages.html', 'game-starter.html', 'game-space-shooter.html', 'game-gamepad.html', 'game-sound.html', 'game-sprites.html']) {
     assert.match(html, new RegExp(`examples/${page}`));
   }
+});
+
+
+test('minifier keeps Python indentation inside embedded modules', async () => {
+  const minified = await readFile('pytml.min.js', 'utf8');
+  assert.match(minified, /^class Element:\n    def __init__\(self, obj\):\n        self\._obj = obj$/m);
+  assert.match(minified, /^class Canvas\(_pytml\.Element\):\n    """/m);
+  assert.doesNotMatch(minified, /^def __init__/m);
+});
+
+test('persistent Pyodide cache is wired into boot with safe fallbacks', () => {
+  assert.match(src, /const CACHE_PREFIX = 'pytml-pyodide-'/);
+  assert.match(src, /caches\.open\(CACHE_NAME\)/);
+  assert.match(src, /global\.fetch = async function pytmlCachedFetch/);
+  assert.match(src, /installPyodideCache\(indexURL\)/);
+  assert.match(src, /\\\.\(mjs\|js\)/); // loader scripts are never intercepted
+  assert.match(src, /Pytml\.cache = PytmlCache/);
+  for (const method of ['status', 'clear', 'preload', 'persist']) {
+    assert.match(src, new RegExp(`async ${method}\\(`));
+  }
+  for (const flag of ['data-cache', 'data-persist', 'data-preload'].map((s) => s.replace('data-', ''))) {
+    assert.ok(src.includes(`['cache', 'persist', 'preload']`) && flag);
+  }
+});
+
+test('Game Kit is embedded and loaded lazily', () => {
+  assert.match(src, /const GAME_MODULE = String\.raw`"""Pytml Game Kit/);
+  assert.match(src, /_pytml_module\._install_game\(_pytml_game_source\)/);
+  assert.match(src, /class _LazyGame\(_types\.ModuleType\)/);
+  assert.match(src, /sys\.modules\['pytml\.game'\]|_sys\.modules\['pytml\.game'\]/);
+  const names = src.match(/_GAME_NAMES = frozenset\((\[[^\]]+\])\)/)[1];
+  for (const name of ['Canvas', 'loop', 'controls', 'keys', 'gamepad', 'sfx', 'SpriteSheet', 'Animation', 'HighScores', 'dpad', 'touch_button', 'Vec2', 'Rect']) {
+    assert.ok(names.includes(`'${name}'`), `${name} should be exported`);
+  }
+});
+
+test('embedded Python never contains characters that break String.raw templates', () => {
+  const game = src.match(/const GAME_MODULE = String\.raw`([\s\S]*?)`;/)[1];
+  assert.ok(!game.includes('${'));
+  assert.ok(!game.includes('`'));
+});
+
+test('load_image does not force CORS, so local and non-CORS images load', () => {
+  assert.doesNotMatch(src, /^\s*img\.crossOrigin = 'anonymous';/m);
+  assert.match(src, /if \(cors\) img\.crossOrigin = 'anonymous'/);
 });

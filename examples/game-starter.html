@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pytml Game Starter</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { margin: 0; padding: 16px; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; text-align: center; }
+    #screen { display: block; margin: 0 auto; border: 2px solid #30363d; border-radius: 8px; background: #111; }
+    .touch { display: none; justify-content: space-between; align-items: center; max-width: 480px; margin: 18px auto 0; }
+    @media (pointer: coarse) { .touch { display: flex; } }
+    #dpad { width: 140px; height: 140px; }
+    #jump { width: 84px; height: 84px; }
+    p { opacity: .7; font-size: 14px; }
+  </style>
+</head>
+<body>
+<h1>Game Starter</h1>
+<canvas id="screen"></canvas>
+<div class="touch"><div id="dpad"></div><div id="jump"></div></div>
+<p>Move: arrows / WASD / gamepad stick / on-screen D-pad &nbsp;·&nbsp; Action: Space / gamepad A / on-screen button</p>
+
+<py1>
+from pytml import Canvas, loop, controls, dpad, touch_button, sfx, Vec2, clamp
+
+screen = Canvas("screen", 480, 320, fit=True)
+dpad("dpad")
+touch_button("jump", "A")
+
+# One set of actions, three kinds of input.
+controls.use_defaults()
+controls.bind("left", "touch:dpad.left")
+controls.bind("right", "touch:dpad.right")
+controls.bind("up", "touch:dpad.up")
+controls.bind("down", "touch:dpad.down")
+controls.bind("action", "touch:jump")
+
+player = Vec2(240, 160)
+SPEED = 200
+pulse = 0.0
+
+
+@loop
+def update(dt):
+    global player, pulse
+    player += controls.vector() * SPEED * dt          # diagonals are not faster
+    player = Vec2(clamp(player.x, 16, 464), clamp(player.y, 16, 304))
+
+    if controls.pressed("action"):
+        sfx.play("coin")
+        pulse = 1.0
+    pulse = max(0.0, pulse - dt * 3)
+
+    screen.clear("#111827")
+    screen.circle(player.x, player.y, 16 + pulse * 18, (80, 170, 255, 0.25 + pulse * 0.4))
+    screen.circle(player.x, player.y, 12, "#4aa8ff")
+    screen.text("Pytml Game Kit", 10, 8, "#8b949e", 14)
+    screen.text(f"{update.fps:.0f} fps", 470, 8, "#8b949e", 14, align="right")
+</py1>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+</body>
+</html>

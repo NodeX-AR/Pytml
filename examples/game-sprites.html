@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml Sprites</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { margin: 0; padding: 20px; background: #0d1117; color: #c9d1d9; font-family: system-ui, sans-serif; text-align: center; }
+    #screen { display: block; margin: 16px auto; border: 2px solid #30363d; border-radius: 8px; }
+    p { opacity: .7; font-size: 14px; }
+  </style>
+</head>
+<body>
+<h1>Sprite Animation</h1>
+<canvas id="screen"></canvas>
+<p>Left / Right to walk. This sprite sheet is drawn in code; use <code>await load_image("hero.png")</code> for your own art.</p>
+
+<py1>
+from pytml import Canvas, SpriteSheet, Animation, loop, controls, clamp
+
+# --- build a 4-frame sprite sheet in code (16x16 per frame) -------------------
+sheet_canvas = Canvas.create(64, 16, hidpi=False)
+for frame in range(4):
+    ox = frame * 16
+    bob = (0, -1, 0, -1)[frame]
+    leg = (0, 3, 0, -3)[frame]
+    sheet_canvas.rect(ox + 4, 4 + bob, 8, 8, "#f6c177")            # body
+    sheet_canvas.rect(ox + 5, 6 + bob, 2, 2, "#191724")            # eyes
+    sheet_canvas.rect(ox + 9, 6 + bob, 2, 2, "#191724")
+    sheet_canvas.rect(ox + 4 + leg // 2, 12, 3, 3, "#eb6f92")      # feet
+    sheet_canvas.rect(ox + 9 - leg // 2, 12, 3, 3, "#eb6f92")
+
+sheet = SpriteSheet(sheet_canvas, 16, 16)
+walk = Animation(sheet, [0, 1, 2, 3], fps=8)
+idle = Animation(sheet, [0], fps=1)
+
+screen = Canvas("screen", 320, 160, pixelated=True, fit=True)
+controls.use_defaults()
+x, facing_left = 150.0, False
+
+
+@loop
+def update(dt):
+    global x, facing_left
+    move = controls.axis("left", "right")
+    x = clamp(x + move * 90 * dt, 0, 320 - 64)
+    if move:
+        facing_left = move < 0
+    anim = walk if move else idle
+    anim.update(dt)
+
+    screen.clear("#1f1d2e")
+    screen.rect(0, 120, 320, 40, "#26233a")
+    anim.draw(screen, x, 56, 64, 64, flip_x=facing_left)    # 4x scale, crisp pixels
+</py1>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+</body>
+</html>

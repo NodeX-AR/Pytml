@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pytml Sound Lab</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 30px auto; padding: 0 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    button { font: inherit; padding: 10px 16px; border-radius: 8px; border: 1px solid #ccc; background: #f6f8fa; cursor: pointer; }
+    button:active { background: #e5e7eb; }
+    label { display: block; margin: 12px 0 4px; }
+    input[type=range] { width: 100%; }
+    code { background: #f4f4f5; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<h1>Sound Lab</h1>
+<p>Retro sound effects built into Pytml. No audio files needed.</p>
+
+<div class="row">
+  <button id="b_coin">coin</button><button id="b_jump">jump</button><button id="b_blip">blip</button>
+  <button id="b_laser">laser</button><button id="b_hit">hit</button><button id="b_explosion">explosion</button>
+  <button id="b_powerup">powerup</button><button id="b_error">error</button>
+  <button id="b_lose">lose</button><button id="b_win">win</button>
+</div>
+
+<h3>Make your own</h3>
+<label>Pitch: <span id="pitch_v">440</span> Hz</label>
+<input id="pitch" type="range" min="80" max="1600" value="440">
+<label>Slide: <span id="slide_v">0</span> Hz</label>
+<input id="slide" type="range" min="-800" max="800" value="0">
+<label>Length: <span id="dur_v">150</span> ms</label>
+<input id="dur" type="range" min="30" max="800" value="150">
+<label>Wave
+  <select id="wave"><option>square</option><option>sawtooth</option><option>triangle</option><option>sine</option></select>
+</label>
+<div class="row"><button id="play">Play tone</button></div>
+<label>Master volume</label>
+<input id="vol" type="range" min="0" max="100" value="100">
+<pre id="code"></pre>
+
+<py1>
+from pytml import sfx, beep, audio
+
+for name in sfx.names:
+    elements[f"b_{name}"].on("click", lambda e, n=name: sfx.play(n))
+
+
+def show(event=None):
+    pitch_v.text, slide_v.text, dur_v.text = pitch.value, slide.value, dur.value
+    code.text = f"beep({pitch.value}, {dur.value}, '{wave.value}', slide={slide.value})"
+
+
+def tone(event):
+    show()
+    beep(int(pitch.value), int(dur.value), wave.value, slide=int(slide.value))
+
+
+pitch.on("input", show)
+slide.on("input", show)
+dur.on("input", show)
+wave.on("change", show)
+play.on("click", tone)
+vol.on("input", lambda e: setattr(audio, "volume", int(vol.value) / 100))
+show()
+</py1>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+</body>
+</html>
