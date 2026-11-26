@@ -1,4 +1,4 @@
-"""Python-side API reference for Pytml 2.5.
+"""Python-side API reference for Pytml 2.6.
 
 The browser distribution provides this module dynamically through Pyodide.
 """

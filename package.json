@@ -8,5 +8,14 @@
   },
   "dependencies": {
     "@upstash/redis": "^1.34.3"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/runtime.test.js",
+    "test:integration": "node tests/integration/run.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "pyodide": "314.0.7"
   }
 }

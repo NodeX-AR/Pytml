@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pytml Space Shooter</title>
+  <script src="https://pytml.vercel.app/pytml.js"></script>
+  <style>
+    body { margin: 0; padding: 12px; background: #05060a; color: #c9d1d9; font-family: system-ui, sans-serif; text-align: center; }
+    #screen { display: block; margin: 0 auto; border: 2px solid #232a36; border-radius: 8px; background: #05060a; }
+    .touch { display: none; justify-content: space-between; align-items: center; max-width: 360px; margin: 14px auto 0; }
+    @media (pointer: coarse) { .touch { display: flex; } }
+    #dpad { width: 130px; height: 130px; }
+    #fire { width: 96px; height: 96px; }
+    p { opacity: .7; font-size: 13px; }
+  </style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<div class="touch"><div id="dpad"></div><div id="fire"></div></div>
+<p>Arrows / WASD move &nbsp;·&nbsp; Space / gamepad A fires &nbsp;·&nbsp; P pauses</p>
+
+<py1>
+import math
+import random
+from pytml import Canvas, loop, controls, dpad, touch_button, sfx, HighScores, Vec2, clamp, circle_overlap, vibrate
+
+W, H = 360, 480
+screen = Canvas("screen", W, H, fit=True)
+dpad("dpad")
+touch_button("fire", "FIRE")
+
+controls.use_defaults()
+controls.bind("left", "touch:dpad.left")
+controls.bind("right", "touch:dpad.right")
+controls.bind("fire", "space", "z", "pad:a", "pad:rt", "touch:fire")
+
+scores = HighScores("pytml-space-shooter", limit=5)
+stars = [[random.uniform(0, W), random.uniform(0, H), random.uniform(20, 90)] for _ in range(60)]
+g = {}
+
+
+def reset():
+    g.update(state="play", paused=False, x=W / 2, cooldown=0.0, spawn=0.0, score=0, lives=3,
+             invuln=0.0, bullets=[], enemies=[], sparks=[], rank=None, time=0.0)
+
+
+def explode(x, y, color, n=14):
+    for _ in range(n):
+        speed = random.uniform(40, 180)
+        g["sparks"].append([x, y, speed * random.uniform(-1, 1), speed * random.uniform(-1, 1), random.uniform(0.3, 0.7), color])
+
+
+def update(dt):
+    for st in stars:                                   # parallax stars never stop
+        st[1] = (st[1] + st[2] * dt) % H
+
+    if g["state"] == "over":
+        if controls.pressed("action") or controls.pressed("fire"):
+            reset()
+        return
+    if controls.pressed("pause"):
+        g["paused"] = not g["paused"]
+    if g["paused"]:
+        return
+
+    g["time"] += dt
+    g["x"] = clamp(g["x"] + controls.axis("left", "right") * 230 * dt, 18, W - 18)
+    g["cooldown"] -= dt
+    g["invuln"] = max(0.0, g["invuln"] - dt)
+
+    if controls.down("fire") and g["cooldown"] <= 0:
+        g["bullets"].append([g["x"], H - 56])
+        g["cooldown"] = 0.17
+        sfx.play("laser", 0.12)
+
+    g["spawn"] -= dt
+    if g["spawn"] <= 0:
+        g["enemies"].append({"x": random.uniform(20, W - 20), "y": -20.0, "phase": random.uniform(0, 6.28), "dead": False})
+        g["spawn"] = max(0.25, 0.9 - g["score"] / 900)
+
+    speed = 70 + g["score"] / 8
+    for b in g["bullets"]:
+        b[1] -= 440 * dt
+    for e in g["enemies"]:
+        e["y"] += speed * dt
+        e["x"] = clamp(e["x"] + math.sin(g["time"] * 2 + e["phase"]) * 60 * dt, 14, W - 14)
+
+    for b in g["bullets"]:
+        for e in g["enemies"]:
+            if not e["dead"] and circle_overlap(b[0], b[1], 3, e["x"], e["y"], 14):
+                b[1] = -100
+                e["dead"] = True
+                g["score"] += 10
+                explode(e["x"], e["y"], "#ff9f43", 8)
+                sfx.play("hit", 0.15)
+                break
+    g["bullets"] = [b for b in g["bullets"] if b[1] > -20]
+
+    alive = []
+    for e in g["enemies"]:
+        if e["dead"]:
+            continue
+        if g["invuln"] <= 0 and circle_overlap(g["x"], H - 40, 12, e["x"], e["y"], 14):
+            explode(g["x"], H - 40, "#4aa8ff", 24)
+            sfx.play("explosion", 0.3)
+            vibrate(120)
+            g["invuln"] = 1.5
+            g["lives"] -= 1
+        elif e["y"] > H + 20:                          # got past the ship
+            sfx.play("error", 0.15)
+            g["lives"] -= 1
+        else:
+            alive.append(e)
+    g["enemies"] = alive
+
+    if g["lives"] <= 0:
+        g["state"] = "over"
+        g["rank"] = scores.submit(g["score"], "YOU")
+        sfx.play("lose", 0.25)
+
+    for s in g["sparks"]:
+        s[0] += s[2] * dt
+        s[1] += s[3] * dt
+        s[4] -= dt
+    g["sparks"] = [s for s in g["sparks"] if s[4] > 0]
+
+
+def draw():
+    screen.clear("#05060a")
+    for sx, sy, sp in stars:
+        v = int(80 + sp)
+        screen.rect(sx, sy, 2, 2, (v, v, v + 40))
+    for b in g["bullets"]:
+        screen.rect(b[0] - 1.5, b[1] - 8, 3, 12, "#7df9ff")
+    for e in g["enemies"]:
+        screen.circle(e["x"], e["y"], 14, "#e5484d")
+        screen.circle(e["x"] - 5, e["y"] - 2, 3, "#fff")
+        screen.circle(e["x"] + 5, e["y"] - 2, 3, "#fff")
+    for sx, sy, _, _, life, color in g["sparks"]:
+        screen.rect(sx, sy, 3, 3, color)
+    if g["state"] == "play" and (g["invuln"] <= 0 or int(g["time"] * 14) % 2):
+        x, y = g["x"], H - 40
+        screen.polygon([(x, y - 18), (x + 14, y + 14), (x, y + 8), (x - 14, y + 14)], "#4aa8ff")
+
+    screen.text(f"SCORE {g['score']}", 10, 8, "#e6edf3", 15, bold=True)
+    screen.text(f"BEST {scores.best or 0}", W / 2, 8, "#8b949e", 13, align="center")
+    screen.text("♥" * max(0, g["lives"]), W - 10, 8, "#e5484d", 15, align="right")
+
+    if g["paused"]:
+        screen.text("PAUSED", W / 2, H / 2, "#fff", 28, align="center", baseline="middle", bold=True)
+    if g["state"] == "over":
+        screen.text("GAME OVER", W / 2, H / 2 - 40, "#fff", 30, align="center", baseline="middle", bold=True)
+        if g["rank"]:
+            screen.text(f"New high score! Rank #{g['rank']}", W / 2, H / 2, "#ffd166", 16, align="center", baseline="middle")
+        screen.text("Press Space / FIRE to play again", W / 2, H / 2 + 40, "#8b949e", 14, align="center", baseline="middle")
+
+
+reset()
+loop(update, render=draw)
+</py1>
+
+<p><a href="../demo.html">← Back to demos</a></p>
+</body>
+</html>

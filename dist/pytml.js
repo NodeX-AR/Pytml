@@ -1,20 +1,203 @@
 /*
- * Pytml 2.5.1
+ * Pytml 2.6.0
  * Python + HTML, powered by Pyodide.
  *
- * Pytml 2.5 includes a lightweight inline UI preprocessor for <pyN> blocks.
+ * Pytml 2.6 adds a persistent Pyodide cache (Cache Storage API) and the
+ * Pytml Game Kit (game loop, keyboard/gamepad/touch input, canvas, sprites,
+ * sound, collisions, save games). The Game Kit is loaded lazily, so pages
+ * that do not use it pay nothing.
  * The full document/language compiler remains planned for v3.0.
  */
 (function (global) {
   'use strict';
 
-  const VERSION = '2.5.1';
+  const VERSION = '2.6.0';
   const PYODIDE_VERSION = '314.0.7';
   const PYODIDE_INDEX = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
   const PYODIDE_SCRIPT = `${PYODIDE_INDEX}pyodide.js`;
   // file:// is supported for inline Python. Pyodide itself stays on the HTTPS CDN.
   const IS_FILE_PROTOCOL = typeof location !== 'undefined' && location.protocol === 'file:';
   const PY_BLOCK = /^py(?:\d+)?$/i;
+
+
+  // --- Configuration -------------------------------------------------------
+  // Read from window.PytmlConfig (set before the script tag) and from data-*
+  // attributes on the <script> tag itself:
+  //   <script src="pytml.js" data-cache="off" data-persist data-preload></script>
+  const SCRIPT_TAG = (typeof document !== 'undefined' && document.currentScript) || null;
+  const FALSE_WORDS = ['off', 'false', '0', 'no', 'none'];
+
+  function readConfig() {
+    const cfg = Object.assign({}, (global.PytmlConfig && typeof global.PytmlConfig === 'object') ? global.PytmlConfig : {});
+    for (const key of ['cache', 'persist', 'preload']) {
+      // Accept true/false as well as 'off', 'false', '0', 'no' written as strings.
+      if (typeof cfg[key] === 'string') cfg[key] = !FALSE_WORDS.includes(cfg[key].trim().toLowerCase());
+    }
+    if (SCRIPT_TAG && SCRIPT_TAG.hasAttribute) {
+      const flag = (name) => {
+        if (!SCRIPT_TAG.hasAttribute(name)) return undefined;
+        return !FALSE_WORDS.includes(String(SCRIPT_TAG.getAttribute(name)).trim().toLowerCase());
+      };
+      for (const key of ['cache', 'persist', 'preload']) {
+        const value = flag(`data-${key}`);
+        if (value !== undefined) cfg[key] = value;
+      }
+    }
+    return cfg;
+  }
+  const CONFIG = readConfig();
+
+  // --- Persistent Pyodide cache ---------------------------------------------
+  // Pyodide's big files (pyodide.asm.wasm, python_stdlib.zip, pyodide-lock.json
+  // and package wheels such as NumPy) are stored in the browser's Cache Storage
+  // the first time a page loads them, then served from disk afterwards.
+  //
+  // Browsers partition all storage and HTTP caches by top-level site, so a copy
+  // cached for site A can never be reused by site B. This cache therefore works
+  // per site: every page and every return visit on the same origin is instant
+  // after the first load. (Cookies are limited to ~4 KB and cannot hold Pyodide.)
+  const CACHE_PREFIX = 'pytml-pyodide-';
+  const CACHE_NAME = `${CACHE_PREFIX}${PYODIDE_VERSION}`;
+  const CORE_FILES = ['pyodide-lock.json', 'python_stdlib.zip', 'pyodide.asm.wasm'];
+  const cacheStats = { hits: 0, misses: 0, stored: 0, errors: 0 };
+  const pendingPuts = new Set();
+  let _cachePrefixes = [];
+  let _fetchPatched = false;
+  let _cacheDisabled = false;
+
+  function cacheSupported() {
+    try {
+      return typeof caches !== 'undefined' && typeof caches.open === 'function' && typeof Response !== 'undefined';
+    } catch (_) { return false; }
+  }
+
+  async function openPyodideCache() {
+    if (_cacheDisabled || !cacheSupported()) return null;
+    try { return await caches.open(CACHE_NAME); }
+    catch (_) { _cacheDisabled = true; return null; } // file://, sandboxed iframes, private modes
+  }
+
+  function requestInfo(input, init) {
+    try {
+      const url = typeof input === 'string' ? input : (input && input.href) || (input && input.url) || '';
+      const method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      let ranged = false;
+      const headers = (init && init.headers) || (input && input.headers);
+      if (headers) {
+        ranged = typeof headers.has === 'function' ? headers.has('range')
+          : Object.keys(headers).some((k) => k.toLowerCase() === 'range');
+      }
+      return { url: String(url), method, ranged };
+    } catch (_) { return { url: '', method: '', ranged: true }; }
+  }
+
+  function installPyodideCache(indexURL) {
+    if (_cacheDisabled || !cacheSupported() || typeof global.fetch !== 'function') return false;
+    for (const prefix of [indexURL, PYODIDE_INDEX]) if (prefix && !_cachePrefixes.includes(prefix)) _cachePrefixes.push(prefix);
+    if (_fetchPatched) return true;
+    _fetchPatched = true;
+    const nativeFetch = global.fetch.bind(global);
+
+    global.fetch = async function pytmlCachedFetch(input, init) {
+      const { url, method, ranged } = requestInfo(input, init);
+      // Only versioned Pyodide assets, never .mjs/.js loader scripts (those are
+      // loaded by import()/<script> and cannot be served from here anyway).
+      const eligible = method === 'GET' && !ranged && url && !/\.(mjs|js)(\?|$)/.test(url)
+        && _cachePrefixes.some((prefix) => url.startsWith(prefix));
+      if (!eligible) return nativeFetch(input, init);
+
+      const cache = await openPyodideCache();
+      if (!cache) return nativeFetch(input, init);
+
+      try {
+        const hit = await cache.match(url);
+        if (hit) { cacheStats.hits++; return hit; }
+      } catch (_) { cacheStats.errors++; }
+
+      cacheStats.misses++;
+      // The same init (including `integrity`) goes to the network, so a file is
+      // only stored after the browser has verified it.
+      const response = await nativeFetch(input, init);
+      if (response && response.ok && response.status === 200 && response.type !== 'opaque') {
+        let copy = null;
+        try { copy = response.clone(); } catch (_) {}
+        if (copy) {
+          const pending = cache.put(url, copy).then(() => { cacheStats.stored++; }).catch(() => { cacheStats.errors++; });
+          pendingPuts.add(pending);
+          pending.then(() => pendingPuts.delete(pending));
+        }
+      }
+      return response;
+    };
+    return true;
+  }
+
+  async function dropOldCaches() {
+    if (!cacheSupported() || typeof caches.keys !== 'function') return;
+    try {
+      for (const name of await caches.keys()) {
+        if (name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME) await caches.delete(name);
+      }
+    } catch (_) {}
+  }
+
+  async function isCoreCached(indexURL) {
+    const cache = await openPyodideCache();
+    if (!cache) return false;
+    try {
+      for (const file of CORE_FILES) if (!(await cache.match(indexURL + file))) return false;
+      return true;
+    } catch (_) { return false; }
+  }
+
+  // Public cache controls: Pytml.cache.status() / clear() / preload() / persist()
+  const PytmlCache = {
+    name: CACHE_NAME,
+    get supported() { return cacheSupported() && !_cacheDisabled; },
+    get stats() { return Object.assign({}, cacheStats); },
+    async status() {
+      const out = { supported: this.supported, name: CACHE_NAME, pyodideVersion: PYODIDE_VERSION, ready: false, entries: [], persisted: null, usage: null, quota: null };
+      if (!out.supported) return out;
+      const cache = await openPyodideCache();
+      if (cache) {
+        try { out.entries = (await cache.keys()).map((req) => req.url); } catch (_) {}
+        out.ready = CORE_FILES.every((file) => out.entries.some((url) => url.endsWith(file)));
+      }
+      try { out.persisted = await navigator.storage.persisted(); } catch (_) {}
+      try { const est = await navigator.storage.estimate(); out.usage = est.usage; out.quota = est.quota; } catch (_) {}
+      return out;
+    },
+    async clear() {
+      if (!cacheSupported()) return false;
+      try {
+        let removed = false;
+        for (const name of await caches.keys()) if (name.startsWith(CACHE_PREFIX)) removed = (await caches.delete(name)) || removed;
+        return removed;
+      } catch (_) { return false; }
+    },
+    // Ask the browser not to evict the cache under storage pressure.
+    // Firefox may show a permission prompt, so this is opt-in.
+    async persist() {
+      try { return !!(await navigator.storage.persist()); } catch (_) { return false; }
+    },
+    // Download Pyodide's core files in the background without starting Python.
+    // Put <script src="pytml.js" data-preload> on a landing page and the next
+    // page with Python starts instantly.
+    async preload(indexURL = PYODIDE_INDEX) {
+      if (!installPyodideCache(indexURL)) return false;
+      try {
+        for (const file of CORE_FILES) {
+          const response = await global.fetch(indexURL + file);
+          if (!response.ok) return false;
+          await response.arrayBuffer();
+        }
+        // Warm the normal HTTP cache for the loader scripts too (best effort).
+        for (const file of ['pyodide.js', 'pyodide.asm.mjs']) fetch(indexURL + file, { mode: 'cors' }).catch(() => {});
+        await Promise.all(Array.from(pendingPuts));
+        return true;
+      } catch (_) { return false; }
+    }
+  };
 
   // --- Network helpers. Pyodide is loaded only when a Python block is present. ---
   let _pyodideScriptPromise = null;
@@ -106,11 +289,21 @@
       if (document.querySelector('.pytml-boot-pill')) return;
       const pill = document.createElement('div');
       pill.className = 'pytml-boot-pill';
-      pill.innerHTML = `<span class="pytml-boot-spinner"></span><span>Loading Python…</span>`;
+      pill.innerHTML = `<span class="pytml-boot-spinner"></span><span></span>`;
+      pill.lastElementChild.textContent = _bootMessage;
       document.body.appendChild(pill);
     };
     if (document.body) mount();
     else document.addEventListener('DOMContentLoaded', mount, { once: true });
+  }
+
+  let _bootMessage = 'Loading Python…';
+  function setBootMessage(message) {
+    _bootMessage = message;
+    document.querySelectorAll('.pytml-boot-pill:not(.pytml-boot-error)').forEach(el => {
+      const label = el.lastElementChild;
+      if (label) label.textContent = message;
+    });
   }
 
   function clearBootState() {
@@ -146,9 +339,1392 @@
     .pytml-joystick{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
     .pytml-joystick-knob{position:absolute;left:50%;top:50%;width:32%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:currentColor;opacity:.78;pointer-events:none}
     [data-pytml-hidden]{display:none!important}
+    .pytml-touch-button,.pytml-dpad{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+    :where(.pytml-touch-button){display:flex;align-items:center;justify-content:center;width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.16);border:2px solid rgba(255,255,255,.45);color:#fff;font:700 18px system-ui,sans-serif;cursor:pointer;box-sizing:border-box}
+    :where(.pytml-touch-button.pytml-down){background:rgba(255,255,255,.42);transform:scale(.94)}
+    :where(.pytml-dpad){position:relative;display:grid;grid-template:repeat(3,1fr)/repeat(3,1fr);width:150px;height:150px;gap:4px;box-sizing:border-box}
+    :where(.pytml-dpad-arrow){display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,.16);border:2px solid rgba(255,255,255,.35);color:#fff;font:16px system-ui,sans-serif;pointer-events:none}
+    :where(.pytml-dpad-arrow.pytml-down){background:rgba(255,255,255,.45)}
   `;
 
   // This is the Python-side DOM/runtime module injected into Pyodide at startup.
+  // Pytml Game Kit (Python). Compiled lazily on first use.
+  const GAME_MODULE = String.raw`"""Pytml Game Kit (new in 2.6).
+
+Loaded lazily the first time you use any of its names, for example:
+
+    from pytml import Canvas, loop, controls, sfx
+
+Everything here is built on plain browser APIs, so games run on desktop and phones.
+"""
+import js
+import asyncio
+import json
+import math
+import time as _time
+import pytml as _pytml
+from pyodide.ffi import create_proxy, to_js
+try:
+    from pyodide.ffi import jsnull as _JSNULL
+except ImportError:  # older Pyodide: JS null already arrives as None
+    _JSNULL = None
+
+__all__ = [
+    "Vec2", "Rect", "clamp", "lerp", "sign", "distance", "approach", "rect_overlap", "circle_overlap",
+    "Keyboard", "keys", "Gamepad", "gamepad", "connected_gamepads", "on_gamepad_connected", "on_gamepad_disconnected",
+    "Controls", "controls", "Loop", "loop",
+    "Canvas", "Image", "load_image", "load_images", "SpriteSheet", "Animation",
+    "Sound", "SoundHandle", "load_sound", "Music", "music", "sfx", "beep", "audio",
+    "save_game", "load_game", "delete_game", "HighScores",
+    "fullscreen", "exit_fullscreen", "vibrate",
+    "TouchButton", "touch_button", "DPad", "dpad",
+]
+
+_proxies = []          # keep event-listener proxies alive
+_state = {"driven": False}
+
+
+def _inst():
+    return js.pytmlInstance
+
+
+def _nil(value):
+    """True for Python None and for a JS null/undefined that crossed into Python."""
+    return value is None or (_JSNULL is not None and value is _JSNULL)
+
+
+def _report(exc_text):
+    try:
+        _inst().addError(exc_text)
+    except Exception:
+        pass
+
+
+def _safe(fn):
+    """Wrap an event handler so a Python error is shown in the page instead of vanishing."""
+    def handler(*args):
+        try:
+            return fn(*args)
+        except Exception:
+            import traceback
+            _report(traceback.format_exc())
+    return handler
+
+
+def _listen(target, event, fn, options=None):
+    proxy = create_proxy(_safe(fn))
+    _proxies.append(proxy)
+    if options is None:
+        target.addEventListener(event, proxy)
+    else:
+        target.addEventListener(event, proxy, options)
+    return proxy
+
+
+def _element_of(target):
+    """Accept an id/selector string, a pytml Element or a raw JS element."""
+    if isinstance(target, str):
+        return _inst().element(target).element
+    if isinstance(target, _pytml.Element):
+        return target._obj
+    return target
+
+
+# --------------------------------------------------------------------------
+# Math and collisions
+# --------------------------------------------------------------------------
+
+def clamp(value, low, high):
+    return low if value < low else high if value > high else value
+
+
+def lerp(a, b, t):
+    return a + (b - a) * t
+
+
+def sign(value):
+    return (value > 0) - (value < 0)
+
+
+def distance(x1, y1, x2, y2):
+    return math.hypot(x2 - x1, y2 - y1)
+
+
+def approach(value, target, step):
+    """Move value toward target by at most step (handy for acceleration and friction)."""
+    if value < target:
+        return min(value + step, target)
+    return max(value - step, target)
+
+
+def rect_overlap(ax, ay, aw, ah, bx, by, bw, bh):
+    return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+
+
+def circle_overlap(x1, y1, r1, x2, y2, r2):
+    return (x2 - x1) ** 2 + (y2 - y1) ** 2 <= (r1 + r2) ** 2
+
+
+class Vec2:
+    __slots__ = ("x", "y")
+
+    def __init__(self, x=0.0, y=0.0):
+        self.x = float(x)
+        self.y = float(y)
+
+    @classmethod
+    def from_angle(cls, angle, length=1.0):
+        return cls(math.cos(angle) * length, math.sin(angle) * length)
+
+    def __iter__(self):
+        yield self.x
+        yield self.y
+
+    def __repr__(self):
+        return f"Vec2({self.x:g}, {self.y:g})"
+
+    def __eq__(self, other):
+        if isinstance(other, Vec2):
+            return self.x == other.x and self.y == other.y
+        return NotImplemented
+
+    __hash__ = None
+
+    def __add__(self, o):
+        return Vec2(self.x + o[0], self.y + o[1])
+
+    def __sub__(self, o):
+        return Vec2(self.x - o[0], self.y - o[1])
+
+    def __mul__(self, k):
+        return Vec2(self.x * k, self.y * k)
+
+    __rmul__ = __mul__
+
+    def __truediv__(self, k):
+        return Vec2(self.x / k, self.y / k)
+
+    def __neg__(self):
+        return Vec2(-self.x, -self.y)
+
+    def __getitem__(self, i):
+        return (self.x, self.y)[i]
+
+    def copy(self):
+        return Vec2(self.x, self.y)
+
+    @property
+    def length(self):
+        return math.hypot(self.x, self.y)
+
+    @property
+    def length_sq(self):
+        return self.x * self.x + self.y * self.y
+
+    @property
+    def angle(self):
+        return math.atan2(self.y, self.x)
+
+    def normalized(self):
+        n = self.length
+        return Vec2(0.0, 0.0) if n == 0 else Vec2(self.x / n, self.y / n)
+
+    def dot(self, o):
+        return self.x * o[0] + self.y * o[1]
+
+    def distance_to(self, o):
+        return math.hypot(o[0] - self.x, o[1] - self.y)
+
+    def lerp(self, o, t):
+        return Vec2(self.x + (o[0] - self.x) * t, self.y + (o[1] - self.y) * t)
+
+    def rotate(self, angle):
+        c, s = math.cos(angle), math.sin(angle)
+        return Vec2(self.x * c - self.y * s, self.x * s + self.y * c)
+
+    def clamp_length(self, max_length):
+        n = self.length
+        return self.copy() if n <= max_length or n == 0 else self * (max_length / n)
+
+
+class Rect:
+    """Axis-aligned rectangle with x, y (top-left), w and h."""
+    __slots__ = ("x", "y", "w", "h")
+
+    def __init__(self, x, y, w, h):
+        self.x, self.y, self.w, self.h = x, y, w, h
+
+    def __repr__(self):
+        return f"Rect({self.x:g}, {self.y:g}, {self.w:g}, {self.h:g})"
+
+    @property
+    def left(self):
+        return self.x
+
+    @property
+    def top(self):
+        return self.y
+
+    @property
+    def right(self):
+        return self.x + self.w
+
+    @property
+    def bottom(self):
+        return self.y + self.h
+
+    @property
+    def centerx(self):
+        return self.x + self.w / 2
+
+    @property
+    def centery(self):
+        return self.y + self.h / 2
+
+    @property
+    def center(self):
+        return (self.centerx, self.centery)
+
+    @center.setter
+    def center(self, value):
+        self.x = value[0] - self.w / 2
+        self.y = value[1] - self.h / 2
+
+    def overlaps(self, other):
+        return rect_overlap(self.x, self.y, self.w, self.h, other.x, other.y, other.w, other.h)
+
+    def contains(self, px, py):
+        return self.x <= px < self.x + self.w and self.y <= py < self.y + self.h
+
+    def move(self, dx, dy):
+        self.x += dx
+        self.y += dy
+        return self
+
+    def copy(self):
+        return Rect(self.x, self.y, self.w, self.h)
+
+    def inflate(self, dx, dy):
+        return Rect(self.x - dx, self.y - dy, self.w + 2 * dx, self.h + 2 * dy)
+
+
+# --------------------------------------------------------------------------
+# Keyboard
+# --------------------------------------------------------------------------
+
+_KEY_ALIASES = {
+    "left": ("ArrowLeft",), "right": ("ArrowRight",), "up": ("ArrowUp",), "down": ("ArrowDown",),
+    "space": ("Space",), "enter": ("Enter", "NumpadEnter"), "return": ("Enter", "NumpadEnter"),
+    "escape": ("Escape",), "esc": ("Escape",), "tab": ("Tab",), "backspace": ("Backspace",),
+    "shift": ("ShiftLeft", "ShiftRight"), "ctrl": ("ControlLeft", "ControlRight"),
+    "control": ("ControlLeft", "ControlRight"), "alt": ("AltLeft", "AltRight"),
+}
+_SCROLL_KEYS = {"ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"}
+
+
+def _key_codes(name):
+    """Turn 'a', 'A', 'left', 'space' or an exact KeyboardEvent.code into a tuple of codes."""
+    n = str(name)
+    low = n.lower()
+    if low in _KEY_ALIASES:
+        return _KEY_ALIASES[low]
+    if len(n) == 1:
+        if n.isalpha():
+            return ("Key" + n.upper(),)
+        if n.isdigit():
+            return ("Digit" + n,)
+    return (n,)
+
+
+def _is_editable(target):
+    try:
+        tag = getattr(target, "tagName", None)
+        if tag is None:
+            return False
+        return str(tag).lower() in ("input", "textarea", "select") or bool(target.isContentEditable)
+    except Exception:
+        return False
+
+
+class Keyboard:
+    """Polling keyboard state, ideal inside a game loop.
+
+    Keys are physical positions (KeyboardEvent.code), so WASD works on every layout.
+    Names: 'a', 'space', 'left', 'enter', 'shift', 'ArrowLeft', 'KeyW', ...
+    """
+
+    def __init__(self):
+        self._down = set()
+        self._pressed = set()
+        self._released = set()
+        self._hooked = False
+        self.prevent_scroll = True   # stop arrows/space from scrolling the page while playing
+
+    def _hook(self):
+        if self._hooked:
+            return
+        self._hooked = True
+        _listen(js.window, "keydown", self._on_down)
+        _listen(js.window, "keyup", self._on_up)
+        _listen(js.window, "blur", self._on_blur)
+
+    def _on_down(self, e):
+        code = str(e.code)
+        if not code:
+            return
+        if self.prevent_scroll and code in _SCROLL_KEYS and not _is_editable(e.target):
+            e.preventDefault()
+        if code not in self._down:
+            self._down.add(code)
+            self._pressed.add(code)
+
+    def _on_up(self, e):
+        code = str(e.code)
+        if code in self._down:
+            self._down.discard(code)
+            self._released.add(code)
+
+    def _on_blur(self, e=None):
+        self._released.update(self._down)
+        self._down.clear()
+
+    def _any(self, source, names):
+        self._hook()
+        return any(code in source for n in names for code in _key_codes(n))
+
+    def down(self, *names):
+        """True while any of the keys is held."""
+        return self._any(self._down, names)
+
+    def pressed(self, *names):
+        """True once, on the frame a key goes down."""
+        return self._any(self._pressed, names)
+
+    def released(self, *names):
+        """True once, on the frame a key goes up."""
+        return self._any(self._released, names)
+
+    def axis(self, negative, positive):
+        """-1, 0 or 1, for example keys.axis('left', 'right')."""
+        return float(self.down(positive)) - float(self.down(negative))
+
+    def end_frame(self):
+        self._pressed.clear()
+        self._released.clear()
+
+
+keys = Keyboard()
+
+
+# --------------------------------------------------------------------------
+# Gamepad
+# --------------------------------------------------------------------------
+
+_PAD_BUTTONS = {
+    "a": 0, "b": 1, "x": 2, "y": 3, "lb": 4, "rb": 5, "lt": 6, "rt": 7, "back": 8, "start": 9,
+    "ls": 10, "rs": 11, "up": 12, "down": 13, "left": 14, "right": 15, "home": 16,
+    "cross": 0, "circle": 1, "square": 2, "triangle": 3, "l1": 4, "r1": 5, "l2": 6, "r2": 7,
+    "select": 8, "options": 9,
+}
+_PAD_AXES = {"lx": 0, "ly": 1, "rx": 2, "ry": 3}
+_pads = {}
+
+
+class Gamepad:
+    """One controller using the standard layout: a b x y lb rb lt rt back start ls rs up down left right.
+
+    Inside a loop the state is refreshed once per frame, so pressed() and released() work.
+    """
+
+    def __init__(self, index=0):
+        self.index = int(index)
+        self.deadzone = 0.15
+        self._snap = None
+        self._now = {}
+        self._prev = {}
+        self._pressed = set()
+        self._released = set()
+        self._poll()
+
+    def _poll(self):
+        snap = _inst().gamepad_snapshot(self.index)
+        self._snap = None if _nil(snap) else snap.to_py()
+
+    def _begin_frame(self):
+        self._prev = self._now
+        self._poll()
+        self._now = {}
+        if self._snap:
+            self._now = {i: v >= 0.5 for i, v in enumerate(self._snap["buttons"])}
+        for i, is_down in self._now.items():
+            was = self._prev.get(i, False)
+            if is_down and not was:
+                self._pressed.add(i)
+            elif was and not is_down:
+                self._released.add(i)
+        for i, was in self._prev.items():
+            if was and not self._now.get(i, False):
+                self._released.add(i)
+
+    def _s(self):
+        if not _state["driven"]:
+            self._poll()
+        return self._snap
+
+    @property
+    def connected(self):
+        return self._s() is not None
+
+    @property
+    def id(self):
+        s = self._s()
+        return s["id"] if s else ""
+
+    @staticmethod
+    def _button_index(name):
+        key = str(name).lower()
+        if key not in _PAD_BUTTONS:
+            raise ValueError(f"Unknown gamepad button '{name}'. Use one of: {', '.join(sorted(_PAD_BUTTONS))}")
+        return _PAD_BUTTONS[key]
+
+    def button(self, name):
+        """Analog value 0..1 (triggers are analog)."""
+        s = self._s()
+        i = self._button_index(name)
+        if not s or i >= len(s["buttons"]):
+            return 0.0
+        return float(s["buttons"][i])
+
+    def down(self, name):
+        return self.button(name) >= 0.5
+
+    def pressed(self, name):
+        return self._button_index(name) in self._pressed
+
+    def released(self, name):
+        return self._button_index(name) in self._released
+
+    def raw_axis(self, name):
+        s = self._s()
+        i = _PAD_AXES[str(name).lower()]
+        if not s or i >= len(s["axes"]):
+            return 0.0
+        return float(s["axes"][i])
+
+    def axis(self, name):
+        """Axis value with the dead zone removed: lx, ly, rx or ry (-1..1)."""
+        v = self.raw_axis(name)
+        dz = self.deadzone
+        if abs(v) < dz:
+            return 0.0
+        return sign(v) * (abs(v) - dz) / (1 - dz)
+
+    def _stick(self, ax, ay):
+        x, y = self.raw_axis(ax), self.raw_axis(ay)
+        mag = math.hypot(x, y)
+        if mag < self.deadzone:
+            return (0.0, 0.0)
+        scale = min(1.0, (mag - self.deadzone) / (1 - self.deadzone)) / mag
+        return (x * scale, y * scale)
+
+    @property
+    def left_stick(self):
+        """(x, y) with a radial dead zone, each -1..1 and length at most 1."""
+        return self._stick("lx", "ly")
+
+    @property
+    def right_stick(self):
+        return self._stick("rx", "ry")
+
+    def rumble(self, ms=200, strong=1.0, weak=1.0):
+        """Vibrate the controller (Chrome and Edge). Returns False when unsupported."""
+        return bool(_inst().gamepad_rumble(self.index, ms, strong, weak))
+
+
+def gamepad(index=0):
+    index = int(index)
+    if index not in _pads:
+        _pads[index] = Gamepad(index)
+    return _pads[index]
+
+
+def connected_gamepads():
+    return [gamepad(i) for i in range(4) if gamepad(i).connected]
+
+
+def on_gamepad_connected(callback):
+    """callback(pad). Browsers only report a pad after its first button press."""
+    return _listen(js.window, "gamepadconnected", lambda e: callback(gamepad(int(e.gamepad.index))))
+
+
+def on_gamepad_disconnected(callback):
+    return _listen(js.window, "gamepaddisconnected", lambda e: callback(gamepad(int(e.gamepad.index))))
+
+
+# --------------------------------------------------------------------------
+# Controls: one set of actions for keyboard, gamepad and touch
+# --------------------------------------------------------------------------
+
+class Controls:
+    """Map actions to keyboard keys, gamepad buttons and on-screen touch controls.
+
+        controls.bind("jump", "space", "up", "pad:a", "touch:jump_btn")
+        controls.bind("left", "left", "a", "pad:left", "pad:lx-", "touch:dpad.left", "stick:move.left")
+
+    Source formats:
+        'space', 'a', 'ArrowLeft'   keyboard
+        'pad:a', 'pad:left'         gamepad button on any connected pad
+        'pad:lx-', 'pad:ry+'        gamepad stick direction (lx, ly, rx, ry)
+        'touch:id'                  a touch_button() element
+        'touch:id.left'             a dpad() direction (left, right, up, down)
+        'stick:id.left'             a joystick() direction (left, right, up, down)
+    """
+
+    def __init__(self):
+        self._bindings = {}
+        self._pressed = set()
+        self._released = set()
+        self._was_down = {}
+        self._elements = {}
+        self.threshold = 0.5
+
+    def bind(self, action, *sources):
+        self._bindings.setdefault(action, [])
+        for s in sources:
+            if s not in self._bindings[action]:
+                self._bindings[action].append(s)
+        return self
+
+    def unbind(self, action=None):
+        if action is None:
+            self._bindings.clear()
+        else:
+            self._bindings.pop(action, None)
+        return self
+
+    def use_defaults(self):
+        """left/right/up/down (arrows, WASD, d-pad, left stick), action, cancel and pause."""
+        self.bind("left", "left", "a", "pad:left", "pad:lx-")
+        self.bind("right", "right", "d", "pad:right", "pad:lx+")
+        self.bind("up", "up", "w", "pad:up", "pad:ly-")
+        self.bind("down", "down", "s", "pad:down", "pad:ly+")
+        self.bind("action", "space", "enter", "z", "pad:a")
+        self.bind("cancel", "x", "pad:b")
+        self.bind("pause", "escape", "p", "pad:start")
+        return self
+
+    @property
+    def actions(self):
+        return list(self._bindings)
+
+    def _dom(self, element_id):
+        el = self._elements.get(element_id)
+        if el is None:
+            el = js.document.getElementById(element_id)
+            if _nil(el):
+                return None
+            self._elements[element_id] = el
+        return el
+
+    def _source(self, src):
+        head, sep, rest = src.partition(":")
+        if not sep:
+            return 1.0 if keys.down(src) else 0.0
+        if head == "pad":
+            return self._pad_value(rest)
+        if head == "touch":
+            ident, _, part = rest.partition(".")
+            el = self._dom(ident)
+            return float(_inst().touch_value(el, part)) if el is not None else 0.0
+        if head == "stick":
+            ident, _, part = rest.partition(".")
+            el = self._dom(ident)
+            if el is None:
+                return 0.0
+            st = _inst().joystick_state(el)
+            x, y = float(st.x), float(st.y)
+            return {"left": max(0.0, -x), "right": max(0.0, x), "up": max(0.0, -y), "down": max(0.0, y)}.get(part, 0.0)
+        raise ValueError(f"Unknown control source '{src}'")
+
+    @staticmethod
+    def _pad_value(name):
+        best = 0.0
+        for i in range(4):
+            pad = gamepad(i)
+            if not pad.connected:
+                continue
+            if name[-1:] in "+-" and name[:-1].lower() in _PAD_AXES:
+                v = pad.axis(name[:-1])
+                v = v if name[-1] == "+" else -v
+                best = max(best, v)
+            else:
+                best = max(best, pad.button(name))
+        return best
+
+    def value(self, action):
+        """0..1 strength of an action (analog for sticks and triggers)."""
+        return max((self._source(s) for s in self._bindings.get(action, ())), default=0.0)
+
+    def down(self, action):
+        return self.value(action) >= self.threshold
+
+    def pressed(self, action):
+        return action in self._pressed
+
+    def released(self, action):
+        return action in self._released
+
+    def axis(self, negative, positive):
+        """-1..1 from two actions, for example controls.axis('left', 'right')."""
+        return self.value(positive) - self.value(negative)
+
+    def vector(self, left="left", right="right", up="up", down="down"):
+        """Movement as a Vec2 with length at most 1 (diagonals are not faster)."""
+        return Vec2(self.axis(left, right), self.axis(up, down)).clamp_length(1.0)
+
+    def update(self):
+        """Called automatically by loop(). Call it yourself only if you run your own frame loop."""
+        for action, sources in self._bindings.items():
+            is_down = self.value(action) >= self.threshold
+            was = self._was_down.get(action, False)
+            key_sources = [s for s in sources if ":" not in s]
+            if (is_down and not was) or any(keys.pressed(s) for s in key_sources):
+                self._pressed.add(action)
+            if not is_down and (was or any(keys.released(s) for s in key_sources)):
+                self._released.add(action)
+            self._was_down[action] = is_down
+
+    def end_frame(self):
+        self._pressed.clear()
+        self._released.clear()
+
+
+controls = Controls()
+
+
+# --------------------------------------------------------------------------
+# Game loop
+# --------------------------------------------------------------------------
+
+def _accepts_args(fn):
+    import inspect
+    try:
+        params = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return True
+    return any(p.kind in (p.VAR_POSITIONAL, p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) for p in params)
+
+
+def _begin_frame():
+    for pad in list(_pads.values()):
+        pad._begin_frame()
+    if controls._bindings:
+        if any(":" in s and s.startswith("pad:") for srcs in controls._bindings.values() for s in srcs):
+            for i in range(4):
+                gamepad(i)
+        controls.update()
+
+
+def _consume_edges():
+    keys.end_frame()
+    controls.end_frame()
+    for pad in _pads.values():
+        pad._pressed.clear()
+        pad._released.clear()
+
+
+class Loop:
+    """A requestAnimationFrame game loop.
+
+        @loop
+        def update(dt):          # dt = seconds since the previous frame
+            ...
+
+        loop(update, render=draw, fixed=1/60)   # fixed timestep physics + render()
+
+    Options: fps (cap), fixed (seconds per physics step), max_dt (clamp after tab switches).
+    Methods: stop(), pause(), resume(), start().  Info: time, frame, fps, running, paused, alpha.
+    """
+
+    def __init__(self, update, render=None, fixed=None, fps=None, max_dt=0.1, autostart=True):
+        self._update = update
+        self._render = render
+        self._update_args = _accepts_args(update)
+        self.fixed = float(fixed) if fixed else None
+        self.max_dt = float(max_dt)
+        self._min_interval = (1.0 / float(fps)) if fps else 0.0
+        self.running = False
+        self.paused = False
+        self.time = 0.0
+        self.frame = 0
+        self.fps = 0.0
+        self.alpha = 0.0
+        self._acc = 0.0
+        self._last = None
+        self._raf = None
+        self._fps_t = 0.0
+        self._fps_n = 0
+        self._proxy = create_proxy(self._tick)
+        if autostart:
+            self.start()
+
+    def __call__(self, *args, **kwargs):
+        return self._update(*args, **kwargs)
+
+    def start(self):
+        if self.running:
+            return self
+        self.running = True
+        self._last = None
+        _state["driven"] = True
+        self._raf = js.requestAnimationFrame(self._proxy)
+        return self
+
+    def stop(self):
+        self.running = False
+        if self._raf is not None:
+            try:
+                js.cancelAnimationFrame(self._raf)
+            except Exception:
+                pass
+            self._raf = None
+        return self
+
+    def pause(self):
+        self.paused = True
+        return self
+
+    def resume(self):
+        self.paused = False
+        self._last = None
+        return self
+
+    def toggle_pause(self):
+        return self.resume() if self.paused else self.pause()
+
+    def _call(self, fn, takes_args, *args):
+        result = fn(*args) if takes_args else fn()
+        if asyncio.iscoroutine(result):
+            asyncio.ensure_future(result)
+
+    def _tick(self, ts):
+        if not self.running:
+            return
+        self._raf = js.requestAnimationFrame(self._proxy)
+        now = float(ts) / 1000.0
+        if self._last is None:
+            self._last = now - 1.0 / 60
+        elapsed = now - self._last
+        if elapsed < self._min_interval - 0.002:
+            return
+        self._last = now
+        dt = min(elapsed, self.max_dt)
+        if self.paused:
+            return
+        try:
+            self._frame(dt)
+        except Exception:
+            import traceback
+            self.stop()
+            _report("Game loop stopped: " + traceback.format_exc())
+
+    def _frame(self, dt):
+        _begin_frame()
+        if self.fixed:
+            self._acc += dt
+            steps = 0
+            while self._acc >= self.fixed and steps < 8:
+                self._call(self._update, self._update_args, self.fixed)
+                _consume_edges()
+                self._acc -= self.fixed
+                steps += 1
+            if steps == 8:
+                self._acc = 0.0
+            self.alpha = self._acc / self.fixed
+        else:
+            self._call(self._update, self._update_args, dt)
+            _consume_edges()
+        if self._render is not None:
+            self._call(self._render, _accepts_args(self._render))
+        self.time += dt
+        self.frame += 1
+        self._fps_t += dt
+        self._fps_n += 1
+        if self._fps_t >= 0.5:
+            self.fps = self._fps_n / self._fps_t
+            self._fps_t = 0.0
+            self._fps_n = 0
+
+
+def loop(update=None, render=None, **options):
+    """Start a game loop. Works as a function call or as a decorator, with or without options."""
+    if update is None:
+        return lambda fn: Loop(fn, render, **options)
+    return Loop(update, render, **options)
+
+
+# --------------------------------------------------------------------------
+# Canvas, images, sprites
+# --------------------------------------------------------------------------
+
+def _css(color):
+    if isinstance(color, (tuple, list)):
+        if len(color) >= 4:
+            return f"rgba({int(color[0])},{int(color[1])},{int(color[2])},{float(color[3])})"
+        return f"rgb({int(color[0])},{int(color[1])},{int(color[2])})"
+    return str(color)
+
+
+class Image:
+    """A loaded picture. Get one with: img = await load_image('player.png')"""
+
+    def __init__(self, js_image):
+        self.js = js_image
+
+    @property
+    def width(self):
+        return int(self.js.width)
+
+    @property
+    def height(self):
+        return int(self.js.height)
+
+
+async def load_image(url, cors=False):
+    """Load a picture. Pass cors=True only if you need to read its pixels back (needs CORS headers)."""
+    return Image(await _inst().load_image(str(url), bool(cors)))
+
+
+async def load_images(mapping, cors=False):
+    """images = await load_images({'hero': 'hero.png', 'tiles': 'tiles.png'})"""
+    names = list(mapping)
+    loaded = await asyncio.gather(*[load_image(mapping[n], cors) for n in names])
+    return dict(zip(names, loaded))
+
+
+def _drawable(img):
+    if isinstance(img, Image):
+        return img.js
+    if isinstance(img, _pytml.Element):
+        return img._obj
+    return img
+
+
+class Canvas(_pytml.Element):
+    """A 2D game screen with crisp HiDPI rendering and simple drawing calls.
+
+        screen = Canvas("game", 480, 320)             # <canvas id="game">
+        screen.clear("#111")
+        screen.rect(10, 10, 32, 32, "#4af")
+        screen.text("Score 10", 8, 8, size=14)
+
+    Options: pixelated=True (crisp pixel art), fit=True (scale down to fit its container).
+    Logical size is width x height no matter the screen density. screen.ctx is the raw 2D context.
+    """
+
+    def __init__(self, target, width=None, height=None, pixelated=False, fit=False, hidpi=True):
+        obj = _element_of(target)
+        super().__init__(obj)
+        w = int(width if width is not None else obj.width)
+        h = int(height if height is not None else obj.height)
+        self._w, self._h = w, h
+        ratio = 1.0
+        if hidpi:
+            ratio = max(1.0, min(3.0, float(js.window.devicePixelRatio or 1)))
+        self._ratio = ratio
+        obj.width = int(w * ratio)
+        obj.height = int(h * ratio)
+        if fit:
+            obj.style.width = "100%"
+            obj.style.maxWidth = f"{w}px"
+            obj.style.height = "auto"
+            obj.style.aspectRatio = f"{w} / {h}"
+        else:
+            obj.style.width = f"{w}px"
+            obj.style.height = f"{h}px"
+        obj.style.touchAction = "none"
+        self.ctx = obj.getContext("2d")
+        self.ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+        if pixelated:
+            obj.style.imageRendering = "pixelated"
+            self.ctx.imageSmoothingEnabled = False
+        self.mouse_x = 0.0
+        self.mouse_y = 0.0
+        self.mouse_down = False
+        _listen(obj, "pointermove", self._on_pointer)
+        _listen(obj, "pointerdown", self._on_pointer_down)
+        _listen(js.window, "pointerup", self._on_pointer_up)
+
+    @classmethod
+    def create(cls, width, height, **options):
+        """An off-screen canvas, handy for building sprites in code."""
+        return cls(js.document.createElement("canvas"), width, height, **options)
+
+    @property
+    def width(self):
+        return self._w
+
+    @property
+    def height(self):
+        return self._h
+
+    # pointer in logical canvas coordinates
+    def to_canvas(self, client_x, client_y):
+        r = self._obj.getBoundingClientRect()
+        sx = self._w / r.width if r.width else 1.0
+        sy = self._h / r.height if r.height else 1.0
+        return ((float(client_x) - r.left) * sx, (float(client_y) - r.top) * sy)
+
+    def _on_pointer(self, e):
+        self.mouse_x, self.mouse_y = self.to_canvas(e.clientX, e.clientY)
+
+    def _on_pointer_down(self, e):
+        self._on_pointer(e)
+        self.mouse_down = True
+
+    def _on_pointer_up(self, e):
+        self.mouse_down = False
+
+    # drawing
+    def clear(self, color=None):
+        c = self.ctx
+        if color is None:
+            c.clearRect(0, 0, self._w, self._h)
+        else:
+            c.fillStyle = _css(color)
+            c.fillRect(0, 0, self._w, self._h)
+
+    def rect(self, x, y, w, h, color="#fff", fill=True, line_width=1):
+        c = self.ctx
+        if fill:
+            c.fillStyle = _css(color)
+            c.fillRect(x, y, w, h)
+        else:
+            c.strokeStyle = _css(color)
+            c.lineWidth = line_width
+            c.strokeRect(x, y, w, h)
+
+    def circle(self, x, y, r, color="#fff", fill=True, line_width=1):
+        c = self.ctx
+        c.beginPath()
+        c.arc(x, y, max(0, r), 0, math.tau)
+        if fill:
+            c.fillStyle = _css(color)
+            c.fill()
+        else:
+            c.strokeStyle = _css(color)
+            c.lineWidth = line_width
+            c.stroke()
+
+    def line(self, x1, y1, x2, y2, color="#fff", width=1):
+        c = self.ctx
+        c.strokeStyle = _css(color)
+        c.lineWidth = width
+        c.beginPath()
+        c.moveTo(x1, y1)
+        c.lineTo(x2, y2)
+        c.stroke()
+
+    def polygon(self, points, color="#fff", fill=True, line_width=1):
+        pts = list(points)
+        if len(pts) < 2:
+            return
+        c = self.ctx
+        c.beginPath()
+        c.moveTo(pts[0][0], pts[0][1])
+        for px, py in pts[1:]:
+            c.lineTo(px, py)
+        c.closePath()
+        if fill:
+            c.fillStyle = _css(color)
+            c.fill()
+        else:
+            c.strokeStyle = _css(color)
+            c.lineWidth = line_width
+            c.stroke()
+
+    def text(self, s, x, y, color="#fff", size=16, font="system-ui, sans-serif", align="left", baseline="top", bold=False):
+        c = self.ctx
+        c.font = f"{'bold ' if bold else ''}{int(size)}px {font}"
+        c.textAlign = align
+        c.textBaseline = baseline
+        c.fillStyle = _css(color)
+        c.fillText(str(s), x, y)
+
+    def measure_text(self, s, size=16, font="system-ui, sans-serif", bold=False):
+        c = self.ctx
+        c.font = f"{'bold ' if bold else ''}{int(size)}px {font}"
+        return float(c.measureText(str(s)).width)
+
+    def draw_image(self, img, x, y, w=None, h=None, src=None, flip_x=False, flip_y=False, rotation=0.0, alpha=1.0):
+        """Draw an Image or another Canvas. src=(sx, sy, sw, sh) picks part of it; rotation is in radians."""
+        el = _drawable(img)
+        sx, sy, sw, sh = src if src else (0, 0, el.width, el.height)
+        dw = sw if w is None else w
+        dh = sh if h is None else h
+        c = self.ctx
+        if flip_x or flip_y or rotation or alpha != 1.0:
+            c.save()
+            c.translate(x + dw / 2, y + dh / 2)
+            if rotation:
+                c.rotate(rotation)
+            c.scale(-1 if flip_x else 1, -1 if flip_y else 1)
+            c.globalAlpha = alpha
+            c.drawImage(el, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh)
+            c.restore()
+        else:
+            c.drawImage(el, sx, sy, sw, sh, x, y, dw, dh)
+
+    def save(self):
+        self.ctx.save()
+
+    def restore(self):
+        self.ctx.restore()
+
+    def translate(self, x, y):
+        self.ctx.translate(x, y)
+
+    def rotate(self, radians):
+        self.ctx.rotate(radians)
+
+    def scale(self, sx, sy=None):
+        self.ctx.scale(sx, sx if sy is None else sy)
+
+
+class SpriteSheet:
+    """Cut a grid image into numbered frames (left to right, top to bottom)."""
+
+    def __init__(self, image, frame_width, frame_height, margin=0, spacing=0):
+        self.image = image
+        self.fw, self.fh = int(frame_width), int(frame_height)
+        self.margin, self.spacing = int(margin), int(spacing)
+        el = _drawable(image)
+        usable = int(el.width) - 2 * self.margin + self.spacing
+        self.columns = max(1, usable // (self.fw + self.spacing))
+        rows = max(1, (int(el.height) - 2 * self.margin + self.spacing) // (self.fh + self.spacing))
+        self.count = self.columns * rows
+
+    def frame(self, index):
+        i = int(index) % self.count
+        col, row = i % self.columns, i // self.columns
+        return (self.margin + col * (self.fw + self.spacing), self.margin + row * (self.fh + self.spacing), self.fw, self.fh)
+
+    def draw(self, canvas, index, x, y, w=None, h=None, **options):
+        canvas.draw_image(self.image, x, y, w, h, src=self.frame(index), **options)
+
+
+class Animation:
+    """Play frames of a SpriteSheet:  walk = Animation(sheet, [0, 1, 2, 3], fps=8)"""
+
+    def __init__(self, sheet, frames, fps=10, loop=True):
+        self.sheet = sheet
+        self.frames = list(frames)
+        self.fps = float(fps)
+        self.loop = loop
+        self.time = 0.0
+        self.playing = True
+
+    def reset(self):
+        self.time = 0.0
+        self.playing = True
+
+    @property
+    def index(self):
+        n = int(self.time * self.fps)
+        if self.loop:
+            return n % len(self.frames)
+        return min(n, len(self.frames) - 1)
+
+    @property
+    def finished(self):
+        return not self.loop and int(self.time * self.fps) >= len(self.frames) - 1
+
+    @property
+    def frame(self):
+        return self.frames[self.index]
+
+    def update(self, dt):
+        if self.playing:
+            self.time += dt
+
+    def draw(self, canvas, x, y, w=None, h=None, **options):
+        self.sheet.draw(canvas, self.frame, x, y, w, h, **options)
+
+
+# --------------------------------------------------------------------------
+# Sound
+# --------------------------------------------------------------------------
+
+_noop = create_proxy(lambda *a: None)
+_musics = []
+
+
+class SoundHandle:
+    def __init__(self, handle):
+        self._h = handle
+
+    def stop(self):
+        if self._h:
+            _inst().audio.stop(self._h)
+
+
+class Sound:
+    """A loaded sound effect. Overlapping plays are fine, so rapid-fire shots just work."""
+
+    def __init__(self, url, volume=1.0):
+        self.url = str(url)
+        self.volume = float(volume)
+
+    def play(self, volume=1.0, loop=False, rate=1.0, pan=0.0):
+        h = _inst().audio.play(self.url, self.volume * float(volume), bool(loop), float(rate), float(pan))
+        return SoundHandle(int(h))
+
+
+async def load_sound(url, volume=1.0):
+    """jump = await load_sound('jump.wav');  jump.play()"""
+    await _inst().audio.load(str(url))
+    return Sound(url, volume)
+
+
+class _Sfx:
+    """Built-in retro sound effects. No files needed:  sfx.play('coin')"""
+
+    def play(self, name, volume=0.25):
+        _inst().audio.preset(str(name), float(volume))
+
+    @property
+    def names(self):
+        return list(_inst().audio.presetNames().to_py())
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return lambda volume=0.25: self.play(name, volume)
+
+
+sfx = _Sfx()
+
+
+def beep(freq=440, ms=120, wave="square", volume=0.25, slide=0):
+    """Play a synthesized tone. wave: square, sine, triangle or sawtooth. slide changes pitch by Hz."""
+    _inst().audio.tone(float(freq), float(ms), str(wave), float(volume), float(slide))
+
+
+class _AudioControl:
+    @property
+    def volume(self):
+        return float(_inst().audio.volume)
+
+    @volume.setter
+    def volume(self, v):
+        _inst().audio.volume = float(v)
+
+    @property
+    def muted(self):
+        return bool(_inst().audio.muted)
+
+    @muted.setter
+    def muted(self, v):
+        _inst().audio.muted = bool(v)
+        for m in _musics:
+            m._el.muted = bool(v)
+
+    def stop_all(self):
+        _inst().audio.stopAll()
+
+
+audio = _AudioControl()
+_inst().audio.hookUnlock()
+
+
+class Music:
+    """Streaming background music:  song = music('theme.mp3');  song.play()"""
+
+    def __init__(self, url, loop=True, volume=0.6):
+        self._el = js.Audio.new(str(url))
+        self._el.loop = bool(loop)
+        self._el.volume = clamp(float(volume), 0.0, 1.0)
+        self._el.muted = audio.muted
+        _musics.append(self)
+
+    def play(self):
+        p = self._el.play()
+        if p is not None:
+            p.catch(_noop)
+        return self
+
+    def pause(self):
+        self._el.pause()
+        return self
+
+    def stop(self):
+        self._el.pause()
+        self._el.currentTime = 0
+        return self
+
+    @property
+    def volume(self):
+        return float(self._el.volume)
+
+    @volume.setter
+    def volume(self, v):
+        self._el.volume = clamp(float(v), 0.0, 1.0)
+
+    @property
+    def playing(self):
+        return not bool(self._el.paused)
+
+
+def music(url, loop=True, volume=0.6):
+    return Music(url, loop, volume)
+
+
+# --------------------------------------------------------------------------
+# Saving
+# --------------------------------------------------------------------------
+
+_SAVE_PREFIX = "pytml:save:"
+
+
+def save_game(key, data):
+    """Store any JSON-friendly value in the browser. Returns False if storage is unavailable."""
+    try:
+        _inst().storage_set(_SAVE_PREFIX + str(key), json.dumps(data))
+        return True
+    except Exception:
+        return False
+
+
+def load_game(key, default=None):
+    try:
+        raw = _inst().storage_get(_SAVE_PREFIX + str(key), None)
+        return default if raw is None else json.loads(str(raw))
+    except Exception:
+        return default
+
+
+def delete_game(key):
+    try:
+        _inst().storage_remove(_SAVE_PREFIX + str(key))
+        return True
+    except Exception:
+        return False
+
+
+class HighScores:
+    """A persistent top-N table.
+
+        scores = HighScores("space-shooter")
+        rank = scores.submit(1200, "AR")     # 1 = new best, None = did not make the table
+        scores.best, scores.top(5)
+
+    Use lower_is_better=True for race times.
+    """
+
+    def __init__(self, key, limit=10, lower_is_better=False):
+        self._key = "highscores:" + str(key)
+        self.limit = int(limit)
+        self.lower_is_better = lower_is_better
+        data = load_game(self._key, [])
+        self._entries = data if isinstance(data, list) else []
+
+    def _sorted(self):
+        return sorted(self._entries, key=lambda e: e["score"], reverse=not self.lower_is_better)[:self.limit]
+
+    def submit(self, score, name=""):
+        entry = {"score": score, "name": str(name), "date": _time.strftime("%Y-%m-%d")}
+        self._entries.append(entry)
+        self._entries = self._sorted()
+        save_game(self._key, self._entries)
+        for i, e in enumerate(self._entries):
+            if e is entry:
+                return i + 1
+        return None
+
+    @property
+    def best(self):
+        return self._entries[0]["score"] if self._entries else None
+
+    def top(self, n=None):
+        return list(self._entries if n is None else self._entries[:int(n)])
+
+    def clear(self):
+        self._entries = []
+        delete_game(self._key)
+
+
+# --------------------------------------------------------------------------
+# Touch controls, fullscreen, vibration
+# --------------------------------------------------------------------------
+
+class TouchButton(_pytml.Element):
+    @property
+    def down(self):
+        return bool(_inst().touch_value(self._obj, ""))
+
+
+def touch_button(target, label=None):
+    """Turn an element into an on-screen button with a .down state (also bindable as 'touch:id')."""
+    el = _element_of(target)
+    _inst().makeTouchButton(el)
+    if label is not None:
+        el.textContent = str(label)
+    return TouchButton(el)
+
+
+class DPad(_pytml.Element):
+    def _part(self, name):
+        return bool(_inst().touch_value(self._obj, name))
+
+    @property
+    def left(self):
+        return self._part("left")
+
+    @property
+    def right(self):
+        return self._part("right")
+
+    @property
+    def up(self):
+        return self._part("up")
+
+    @property
+    def down(self):
+        return self._part("down")
+
+    @property
+    def x(self):
+        return float(self.right) - float(self.left)
+
+    @property
+    def y(self):
+        return float(self.down) - float(self.up)
+
+
+def dpad(target):
+    """Turn an element into an on-screen D-pad. Bind directions as 'touch:id.left' and so on."""
+    el = _element_of(target)
+    _inst().makeDPad(el)
+    return DPad(el)
+
+
+async def fullscreen(target=None):
+    """Go fullscreen (must be called from a click or key handler). Pass an element to fullscreen just that."""
+    el = js.document.documentElement if target is None else _element_of(target)
+    await el.requestFullscreen()
+
+
+async def exit_fullscreen():
+    await _inst().exit_fullscreen()
+
+
+def vibrate(pattern=50):
+    """Vibrate a phone for ms, or follow a pattern like [100, 50, 100]. Returns False if unsupported."""
+    if isinstance(pattern, (list, tuple)):
+        pattern = to_js(list(pattern))
+    return bool(_inst().vibrate(pattern))
+`;
+
   const PYTHON_MODULE = String.raw`
 import js
 import asyncio
@@ -357,8 +1933,45 @@ def install(requirements, **kwargs):
     import micropip
     return micropip.install(requirements, **kwargs)
 
-version = '2.5.1'
+version = '2.6.0'
 pyodide_version = '314.0.7'
+
+# ---- Pytml Game Kit (lazy) ---------------------------------------------------
+_GAME_NAMES = frozenset(['Animation', 'Canvas', 'Controls', 'DPad', 'Gamepad', 'HighScores', 'Image', 'Keyboard', 'Loop', 'Music', 'Rect', 'Sound', 'SoundHandle', 'SpriteSheet', 'TouchButton', 'Vec2', 'approach', 'audio', 'beep', 'circle_overlap', 'clamp', 'connected_gamepads', 'controls', 'delete_game', 'distance', 'dpad', 'exit_fullscreen', 'fullscreen', 'gamepad', 'keys', 'lerp', 'load_game', 'load_image', 'load_images', 'load_sound', 'loop', 'music', 'on_gamepad_connected', 'on_gamepad_disconnected', 'rect_overlap', 'save_game', 'sfx', 'sign', 'touch_button', 'vibrate'])
+_game_source = ''
+
+def _install_game(source):
+    """Register pytml.game. The Game Kit is compiled only when first used."""
+    import sys as _sys
+    import types as _types
+    global _game_source, game
+    _game_source = source
+
+    class _LazyGame(_types.ModuleType):
+        def __getattr__(self, name):
+            if name.startswith('__') or self.__dict__.get('_loaded'):
+                raise AttributeError(name)
+            self.__dict__['_loaded'] = True
+            try:
+                exec(compile(_game_source, 'pytml/game.py', 'exec'), self.__dict__)
+            except BaseException:
+                self.__dict__['_loaded'] = False
+                raise
+            try:
+                return self.__dict__[name]
+            except KeyError:
+                raise AttributeError(name) from None
+
+    game = _LazyGame('pytml.game')
+    game.__package__ = 'pytml'
+    _sys.modules['pytml.game'] = game
+
+def __getattr__(name):
+    if name in _GAME_NAMES:
+        value = getattr(game, name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module 'pytml' has no attribute '{name}'")
 
 def _bind_all_dom(namespace):
     elements = {}
@@ -445,6 +2058,180 @@ def _bind_all_dom(namespace):
     }
   }
 
+
+  // --- Game Kit: audio engine -------------------------------------------------
+  // Web Audio based. Sounds can overlap, and a retro synthesizer provides
+  // ready-made effects (coin, jump, hit, explosion...) with no asset files.
+  const SFX_PRESETS = {
+    coin:      [{ f: 988, to: 988, t: 0.00, d: 0.08, w: 'square' }, { f: 1319, to: 1319, t: 0.07, d: 0.22, w: 'square' }],
+    jump:      [{ f: 240, to: 560, t: 0, d: 0.16, w: 'square' }],
+    blip:      [{ f: 660, to: 660, t: 0, d: 0.05, w: 'square' }],
+    laser:     [{ f: 1000, to: 180, t: 0, d: 0.18, w: 'sawtooth' }],
+    hit:       [{ f: 220, to: 60, t: 0, d: 0.14, w: 'square' }, { noise: true, t: 0, d: 0.09, v: 0.5 }],
+    explosion: [{ noise: true, t: 0, d: 0.7, v: 0.9, sweep: [1800, 80] }, { f: 90, to: 30, t: 0, d: 0.5, w: 'sawtooth', v: 0.4 }],
+    powerup:   [{ f: 392, to: 392, t: 0, d: 0.08, w: 'square' }, { f: 523, to: 523, t: 0.08, d: 0.08, w: 'square' }, { f: 659, to: 659, t: 0.16, d: 0.08, w: 'square' }, { f: 784, to: 1046, t: 0.24, d: 0.2, w: 'square' }],
+    error:     [{ f: 300, to: 100, t: 0, d: 0.3, w: 'sawtooth' }],
+    lose:      [{ f: 392, to: 392, t: 0, d: 0.15, w: 'triangle' }, { f: 330, to: 330, t: 0.15, d: 0.15, w: 'triangle' }, { f: 262, to: 130, t: 0.3, d: 0.4, w: 'triangle' }],
+    win:       [{ f: 523, to: 523, t: 0, d: 0.12, w: 'square' }, { f: 659, to: 659, t: 0.12, d: 0.12, w: 'square' }, { f: 784, to: 784, t: 0.24, d: 0.12, w: 'square' }, { f: 1046, to: 1046, t: 0.36, d: 0.35, w: 'square' }]
+  };
+
+  class PytmlAudio {
+    constructor() {
+      this.ctx = null;
+      this.master = null;
+      this._volume = 1;
+      this._muted = false;
+      this.buffers = new Map();   // url -> AudioBuffer
+      this.elements = new Map();  // url -> HTMLAudioElement (fallback, e.g. file://)
+      this.playing = new Map();   // handle -> { stop() }
+      this._next = 1;
+      this._noise = null;
+      this._unlockHooked = false;
+    }
+    get available() { return !!(global.AudioContext || global.webkitAudioContext); }
+    _ensure() {
+      if (!this.available) return null;
+      if (!this.ctx) {
+        const Ctor = global.AudioContext || global.webkitAudioContext;
+        this.ctx = new Ctor();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = this._muted ? 0 : this._volume;
+        this.master.connect(this.ctx.destination);
+      }
+      if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch (_) {} }
+      return this.ctx;
+    }
+    // Browsers block audio until the first user gesture; resume on the first one.
+    hookUnlock() {
+      if (this._unlockHooked || typeof document === 'undefined') return;
+      this._unlockHooked = true;
+      const unlock = () => {
+        this._ensure();
+        for (const type of ['pointerdown', 'keydown', 'touchend']) document.removeEventListener(type, unlock, true);
+      };
+      for (const type of ['pointerdown', 'keydown', 'touchend']) document.addEventListener(type, unlock, true);
+    }
+    get volume() { return this._volume; }
+    set volume(v) { this._volume = Math.max(0, Math.min(1, Number(v) || 0)); this._applyMaster(); }
+    get muted() { return this._muted; }
+    set muted(v) { this._muted = !!v; this._applyMaster(); }
+    _applyMaster() { if (this.master) this.master.gain.value = this._muted ? 0 : this._volume; }
+
+    async load(url) {
+      url = String(url);
+      if (this.buffers.has(url) || this.elements.has(url)) return url;
+      const ctx = this._ensure();
+      if (ctx) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.arrayBuffer();
+          const buffer = await new Promise((resolve, reject) => {
+            const p = ctx.decodeAudioData(data, resolve, reject);
+            if (p && p.then) p.then(resolve, reject);
+          });
+          this.buffers.set(url, buffer);
+          return url;
+        } catch (_) { /* fall through to <audio> (works on file:// too) */ }
+      }
+      if (typeof Audio === 'undefined') throw new Error(`Could not load sound: ${url}`);
+      await new Promise((resolve, reject) => {
+        const el = new Audio();
+        el.preload = 'auto';
+        el.oncanplaythrough = () => resolve();
+        el.onerror = () => reject(new Error(`Could not load sound: ${url}`));
+        el.src = url;
+        this.elements.set(url, el);
+        el.load();
+      }).catch((e) => { this.elements.delete(url); throw e; });
+      return url;
+    }
+
+    play(url, volume = 1, loop = false, rate = 1, pan = 0) {
+      url = String(url);
+      const handle = this._next++;
+      const ctx = this._ensure();
+      const buffer = this.buffers.get(url);
+      if (ctx && buffer) {
+        const src = ctx.createBufferSource();
+        src.buffer = buffer; src.loop = !!loop; src.playbackRate.value = Number(rate) || 1;
+        const gain = ctx.createGain(); gain.gain.value = Math.max(0, Number(volume));
+        let tail = gain;
+        src.connect(gain);
+        if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, Number(pan))); gain.connect(p); tail = p; }
+        tail.connect(this.master);
+        src.onended = () => this.playing.delete(handle);
+        src.start();
+        this.playing.set(handle, { stop: () => { try { src.stop(); } catch (_) {} } });
+        return handle;
+      }
+      const base = this.elements.get(url);
+      if (base) {
+        const el = base.cloneNode(true);
+        el.volume = Math.max(0, Math.min(1, Number(volume) * (this._muted ? 0 : this._volume)));
+        el.loop = !!loop; el.playbackRate = Number(rate) || 1;
+        el.onended = () => this.playing.delete(handle);
+        const p = el.play(); if (p && p.catch) p.catch(() => {});
+        this.playing.set(handle, { stop: () => { try { el.pause(); } catch (_) {} } });
+        return handle;
+      }
+      return 0;
+    }
+    stop(handle) {
+      const item = this.playing.get(Number(handle));
+      if (item) { item.stop(); this.playing.delete(Number(handle)); }
+    }
+    stopAll() { for (const [h, item] of Array.from(this.playing)) { item.stop(); this.playing.delete(h); } }
+
+    _noiseBuffer() {
+      if (this._noise) return this._noise;
+      const ctx = this.ctx, length = Math.floor(ctx.sampleRate * 1);
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate), data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+      return (this._noise = buffer);
+    }
+
+    // One synthesized voice: oscillator (or noise) with a fast attack and decay.
+    voice(spec, volume = 0.25, startAt = 0) {
+      const ctx = this._ensure();
+      if (!ctx) return 0;
+      const t0 = ctx.currentTime + (spec.t || 0) + startAt, dur = Math.max(0.01, spec.d || 0.1);
+      const gain = ctx.createGain(), peak = Math.max(0, volume * (spec.v ?? 1));
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(peak, t0 + Math.min(0.01, dur / 4));
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      let node;
+      if (spec.noise) {
+        node = ctx.createBufferSource(); node.buffer = this._noiseBuffer(); node.loop = true;
+        if (spec.sweep && ctx.createBiquadFilter) {
+          const filter = ctx.createBiquadFilter(); filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(spec.sweep[0], t0);
+          filter.frequency.exponentialRampToValueAtTime(Math.max(20, spec.sweep[1]), t0 + dur);
+          node.connect(filter); filter.connect(gain);
+        } else node.connect(gain);
+      } else {
+        node = ctx.createOscillator(); node.type = spec.w || 'square';
+        node.frequency.setValueAtTime(Math.max(1, spec.f || 440), t0);
+        if (spec.to && spec.to !== spec.f) node.frequency.exponentialRampToValueAtTime(Math.max(1, spec.to), t0 + dur);
+        node.connect(gain);
+      }
+      gain.connect(this.master);
+      node.start(t0); node.stop(t0 + dur + 0.02);
+      return 1;
+    }
+    tone(freq = 440, ms = 120, wave = 'square', volume = 0.25, slide = 0) {
+      const f = Math.max(1, Number(freq) || 440);
+      return this.voice({ f, to: slide ? Math.max(1, f + Number(slide)) : f, d: (Number(ms) || 120) / 1000, w: wave }, Number(volume));
+    }
+    preset(name, volume = 0.25) {
+      const spec = SFX_PRESETS[String(name)];
+      if (!spec) throw new Error(`Unknown sound effect "${name}". Available: ${Object.keys(SFX_PRESETS).join(', ')}`);
+      for (const voice of spec) this.voice(voice, Number(volume));
+      return 1;
+    }
+    presetNames() { return Object.keys(SFX_PRESETS); }
+  }
+
   class Pytml {
     constructor(options = {}) {
       this.version = VERSION;
@@ -453,6 +2240,8 @@ def _bind_all_dom(namespace):
         pyodideVersion: PYODIDE_VERSION,
         pyodideIndexURL: PYODIDE_INDEX,
         autoOutput: options.autoOutput === true,
+        cache: options.cache,
+        persist: options.persist,
         loadPackagesFromImports: options.loadPackagesFromImports !== false,
         ...options
       };
@@ -466,6 +2255,8 @@ def _bind_all_dom(namespace):
       this._intervals = new Map();
       this._timeouts = new Map();
       this._joystickState = new WeakMap();
+      this._touchState = new WeakMap();
+      this.audio = new PytmlAudio();
     }
 
     async start() {
@@ -483,6 +2274,18 @@ def _bind_all_dom(namespace):
       const indexURL = IS_FILE_PROTOCOL
         ? PYODIDE_INDEX
         : this.options.pyodideIndexURL;
+
+      // Persistent cache: serve Pyodide's large files from Cache Storage after
+      // the first load. Silently falls back to the network if unavailable.
+      const cacheWanted = this.options.cache !== false && CONFIG.cache !== false;
+      let warm = false;
+      if (cacheWanted && installPyodideCache(indexURL)) {
+        warm = await isCoreCached(indexURL);
+        setBootMessage(warm ? 'Starting Python from cache…' : 'Loading Python (first visit only, cached afterwards)…');
+        dropOldCaches();
+        if (this.options.persist === true || CONFIG.persist === true) PytmlCache.persist();
+      }
+      this.cacheWarm = warm;
 
       await this.loadPyodideScript();
       this.pyodide = await global.loadPyodide({ indexURL });
@@ -525,13 +2328,16 @@ def _bind_all_dom(namespace):
 
     async installPythonModule() {
       this.pyodide.globals.set('_pytml_module_source', PYTHON_MODULE);
+      this.pyodide.globals.set('_pytml_game_source', GAME_MODULE);
       await this.pyodide.runPythonAsync(`
 import sys, types
 _pytml_module = types.ModuleType('pytml')
 exec(_pytml_module_source, _pytml_module.__dict__)
 sys.modules['pytml'] = _pytml_module
+_pytml_module._install_game(_pytml_game_source)
 `);
       this.pyodide.globals.delete('_pytml_module_source');
+      this.pyodide.globals.delete('_pytml_game_source');
     }
 
     async setupPythonEnvironment() {
@@ -895,6 +2701,95 @@ async def _pytml_run_source(source):
       return base;
     }
     joystick_state(el) { return this._joystickState.get(el) || {x:0,y:0,magnitude:0,angle:0,active:false}; }
+    // --- Game Kit helpers (used by the lazily loaded Python game module) ---
+    load_image(url, cors = false) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        // Drawing never needs CORS. Setting crossOrigin would make images fail on file:// and on
+        // servers without CORS headers, so it is opt-in (only needed to read pixels back).
+        if (cors) img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Could not load image: ${url}`));
+        img.src = String(url);
+      });
+    }
+    gamepad_snapshot(index = 0) {
+      const g = (navigator.getGamepads?.() || [])[Number(index)];
+      if (!g || !g.connected) return undefined; // undefined -> None in Python (null would arrive as jsnull)
+      return { id: g.id, index: g.index, mapping: g.mapping, buttons: [...g.buttons].map(b => b.value), axes: [...g.axes] };
+    }
+    gamepad_rumble(index = 0, ms = 200, strong = 1, weak = 1) {
+      const g = (navigator.getGamepads?.() || [])[Number(index)];
+      const actuator = g && g.vibrationActuator;
+      if (!actuator || !actuator.playEffect) return false;
+      actuator.playEffect('dual-rumble', { duration: Number(ms) || 0, strongMagnitude: Number(strong), weakMagnitude: Number(weak) }).catch?.(() => {});
+      return true;
+    }
+    vibrate(pattern) { return !!(navigator.vibrate && navigator.vibrate(pattern)); }
+    exit_fullscreen() { return document.fullscreenElement ? document.exitFullscreen() : Promise.resolve(); }
+
+    makeTouchButton(target) {
+      const el = this.element(target).element;
+      if (el.__pytmlTouch) return this.makeElementProxy(el);
+      el.classList.add('pytml-touch-button');
+      const state = { down: false };
+      this._touchState.set(el, state);
+      const set = (value, ev) => {
+        if (state.down === value) return;
+        state.down = value;
+        el.classList.toggle('pytml-down', value);
+        el.dispatchEvent(new CustomEvent(value ? 'touchbuttondown' : 'touchbuttonup', { bubbles: true }));
+        if (!value && ev) { try { el.releasePointerCapture?.(ev.pointerId); } catch (_) {} }
+      };
+      el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); try { el.setPointerCapture?.(ev.pointerId); } catch (_) {} set(true, ev); });
+      for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(type, (ev) => set(false, ev));
+      el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+      el.__pytmlTouch = true;
+      return this.makeElementProxy(el);
+    }
+
+    makeDPad(target) {
+      const el = this.element(target).element;
+      if (el.__pytmlTouch) return this.makeElementProxy(el);
+      el.classList.add('pytml-dpad');
+      const state = { left: false, right: false, up: false, down: false, x: 0, y: 0 };
+      this._touchState.set(el, state);
+      const arrows = {};
+      for (const [dir, glyph, area] of [['up', '\u25B2', '1/2'], ['left', '\u25C0', '2/1'], ['right', '\u25B6', '2/3'], ['down', '\u25BC', '3/2']]) {
+        const a = document.createElement('div');
+        a.className = 'pytml-dpad-arrow'; a.textContent = glyph; a.style.gridArea = area;
+        el.appendChild(a); arrows[dir] = a;
+      }
+      const apply = (next) => {
+        let changed = false;
+        for (const dir of ['left', 'right', 'up', 'down']) {
+          if (state[dir] !== next[dir]) { state[dir] = next[dir]; arrows[dir].classList.toggle('pytml-down', next[dir]); changed = true; }
+        }
+        state.x = (state.right ? 1 : 0) - (state.left ? 1 : 0);
+        state.y = (state.down ? 1 : 0) - (state.up ? 1 : 0);
+        if (changed) el.dispatchEvent(new CustomEvent('dpadchange', { detail: { ...state }, bubbles: true }));
+      };
+      const read = (ev) => {
+        const r = el.getBoundingClientRect();
+        const nx = (ev.clientX - (r.left + r.width / 2)) / Math.max(1, r.width / 2);
+        const ny = (ev.clientY - (r.top + r.height / 2)) / Math.max(1, r.height / 2);
+        apply({ left: nx < -0.3, right: nx > 0.3, up: ny < -0.3, down: ny > 0.3 });
+      };
+      const release = (ev) => { apply({ left: false, right: false, up: false, down: false }); try { el.releasePointerCapture?.(ev.pointerId); } catch (_) {} };
+      el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); try { el.setPointerCapture?.(ev.pointerId); } catch (_) {} read(ev); });
+      el.addEventListener('pointermove', (ev) => { if (el.hasPointerCapture?.(ev.pointerId)) read(ev); });
+      for (const type of ['pointerup', 'pointercancel']) el.addEventListener(type, release);
+      el.addEventListener('contextmenu', (ev) => ev.preventDefault());
+      el.__pytmlTouch = true;
+      return this.makeElementProxy(el);
+    }
+
+    // part: '' (button), 'left'|'right'|'up'|'down' (d-pad). Returns 0 or 1.
+    touch_value(el, part = '') {
+      const state = this._touchState.get(el);
+      if (!state) return 0;
+      return (part ? state[part] : state.down) ? 1 : 0;
+    }
     gamepads() { return [...(navigator.getGamepads?.()||[])].filter(Boolean).map(g=>({id:g.id,index:g.index,connected:g.connected,buttons:[...g.buttons].map(b=>({pressed:b.pressed,value:b.value})),axes:[...g.axes]})); }
   }
 
@@ -902,7 +2797,14 @@ async def _pytml_run_source(source):
   function start(options={}) { if(!singleton) singleton=new Pytml(options); return singleton.start(); }
   async function boot() {
     const run = async () => {
-      if (!pageHasPythonBlocks()) return;
+      if (!pageHasPythonBlocks()) {
+        // Landing pages can warm the cache for the next page that uses Python.
+        if (CONFIG.preload === true && CONFIG.cache !== false) {
+          const idle = global.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+          idle(() => PytmlCache.preload());
+        }
+        return;
+      }
       try {
         await start();
       } catch (err) {
@@ -920,6 +2822,8 @@ async def _pytml_run_source(source):
 
   installEarlyPythonHide();
 
+  Pytml.cache = PytmlCache;
+  Pytml.version = VERSION;
   global.Pytml=Pytml;
   global.PytmlStart=start;
   global.pytml=global.pytml||{start};
